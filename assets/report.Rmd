@@ -1,0 +1,348 @@
+---
+title: COVID-19 Radar 
+author: by the TwinsUK data analysis Team
+output:
+  html_document:
+      toc: true
+      number_sections: true
+      theme: readable
+      highlight: textmate
+      fig_width: 10
+      fig_height: 3
+      fig_caption: yes
+      self_contained: true
+---
+
+
+# Data collected
+
+As of `r day` the COVID-19 radar application got data for `r npatient` individuals, `r nfemale` of whom were females (`r pfemale`%) and `r nmale` males (`r pmale`%).
+Their age ranged from `r minage` to `r maxage` year old, with a median of `r medianage` (mean=`r meanage`, SD=`r sdage`).
+
+
+When we look at different age brackets, this is what we see:
+
+````{r, echo=FALSE}
+age.brackets
+````
+
+
+## Smoking status
+
+We also asked whether they were smokers:
+
+
+````{r, echo=FALSE}
+diseases$is_smoker$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+diseases$is_smoker$brackets
+````
+
+
+## Disease status
+
+We asked the app users whether they were suffering from a set of diseases, which are reported in the following.
+
+
+### Lung diseases
+
+These are our stats for all the individuals who participated:
+
+````{r, echo=FALSE}
+diseases$has_lung_disease$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+diseases$has_lung_disease$brackets
+````
+
+
+### Kidney diseases
+
+These are our stats for all the individuals who participated:
+
+````{r, echo=FALSE}
+diseases$has_kidney_disease$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+diseases$has_kidney_disease$brackets
+````
+
+### Diabetes
+
+These are our stats for all the individuals who participated:
+
+````{r, echo=FALSE}
+diseases$has_diabetes$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+diseases$has_diabetes$brackets
+````
+
+
+
+## Medications
+
+We asked the app users whether they were taking specific classes of medication, which are reported in the following.
+
+
+### Corticosteroids
+
+We asked whether they regularly took "NSAIDs" like ibuprofen, nurofen, diclofenac, naproxen, and these are our stats:
+
+````{r, echo=FALSE}
+medications$takes_corticosteroids$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$takes_corticosteroids$brackets
+````
+
+### Blood pressure medication
+
+We asked whether they regularly took blood pressure medications ending in "-pril", such as enalapril, ramipril, perindopril, and these are our stats:
+
+````{r, echo=FALSE}
+medications$takes_blood_pressure_medications$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$takes_blood_pressure_medications$brackets
+````
+
+
+### Chemotherapy or immunotherapy for cancer
+
+These are our stats for all the individuals who participated:
+
+````{r, echo=FALSE}
+medications$does_chemiotherapy$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$does_chemiotherapy$brackets
+````
+
+
+### Immunosuppressant
+
+We asked whether they regularly took immunosuppressant medications (including steroids, methotrexate, biologics), and these are our stats:
+
+
+````{r, echo=FALSE}
+medications$takes_immunosuppressants$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$takes_immunosuppressants$brackets
+````
+
+
+# COVID-19 status
+
+## Self-reported 
+
+We asked the app users whether they believed they have already had COVID-19, and `r sum(!is.na(patient$already_had_covid))` answered. Please note, that is information is self-reported and is not confirmed by a positive test. 
+
+`r nrow(already_had_covid)` reported thinking of have already had COVID-19, that is `r palready_had_covid`%.
+
+
+When we look at different age brackets, this is what we see:
+
+````{r, echo=FALSE}
+age.brackets.already_had_covid
+````
+
+
+## Confirmed COVID-19 cases
+
+`r nrow(positive)+nrow(negative)` were tested for COVID-19, and `r nrow(positive)` confirmed the disease (`r ppositive`%).
+`r sum(positive$gender==0)` were females (`r pfemale.positive`%).
+
+`r nrow(waiting)` individuals are still waiting for the results of the test.
+
+When we look at different age brackets, this is what we see:
+
+````{r, echo=FALSE}
+age.brackets.positive
+````
+
+
+# What are the reported symptoms?
+
+`r sum(!is.na(assessment$health_status) & assessment$health_status == "healthy")` individuals told us that they were healthy, but `r sum(!is.na(assessment$health_status) & assessment$health_status == "not_healthy")` reported that they were not feeling quite right.
+
+````{r, echo=FALSE}
+health_status$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+health_status$brackets
+````
+
+We then asked the people that were not feeling fine which were their symptoms, and we details about them below:
+
+
+## Fever
+
+`r length(temperature)` individuals reported their temperature. The median value was `r median.temperature` (mean=`r mean.temperature`, SD=`r sd.temperature`). `r sum(temperature > 38)` had a temperature higher than 38 C.
+
+`r sum(!is.na(assessment$fever) & assessment$fever == "t")` instead reported of having fever -- albeit not everyone of them reported their temperature:
+
+````{r, echo=FALSE}
+symptoms$fever$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$fever$brackets
+````
+
+## Persistent cough
+
+````{r, echo=FALSE}
+symptoms$persistent_cough$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$persistent_cough$brackets
+````
+
+
+## Shortness of breath
+
+Out of `r sum(!is.na(assessment$shortness_of_breath))` who answered regarding shortness of breath, `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath != "no")` reported experiencing it. For `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "mild")` it was mild, for `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "significant")` it was significant, and for `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "severe")` it was severe.
+
+Taking into account as those reporting having shortness of breath, this is what we observe:
+
+````{r, echo=FALSE}
+shortness_of_breath$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+shortness_of_breath$brackets
+
+````
+
+## Chest pain
+
+
+````{r, echo=FALSE}
+symptoms$chest_pain$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$chest_pain$brackets
+````
+
+## Hoarse voice
+
+
+````{r, echo=FALSE}
+symptoms$hoarse_voice$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$hoarse_voice$brackets
+````
+
+## Loss of sense of smell
+
+
+````{r, echo=FALSE}
+symptoms$loss_of_smell$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$loss_of_smell$brackets
+````
+
+## Fatigue
+
+Out of `r sum(!is.na(assessment$fatigue))` who answered regarding experiencing fatigue, `r sum(!is.na(assessment$fatigue) & assessment$fatigue != "no")` reported experiencing it. For `r sum(!is.na(assessment$fatigue) & assessment$fatigue == "mild")` it was mild, and for `r  sum(!is.na(assessment$fatigue) & assessment$fatigue == "severe")` it was severe.
+
+Taking into account as those reporting having fatigue, this is what we observe:
+
+
+````{r, echo=FALSE}
+fatigue$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+fatigue$brackets
+````
+
+
+## Diarrhoea
+
+
+````{r, echo=FALSE}
+symptoms$diarrhoea$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$diarrhoea$brackets
+````
+
+## Abdominal pain
+
+````{r, echo=FALSE}
+symptoms$abdominal_pain$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$abdominal_pain$brackets
+````
+
+## Skipped meals
+
+````{r, echo=FALSE}
+symptoms$skipped_meals$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$skipped_meals$brackets
+````
+
+
