@@ -12,7 +12,7 @@
  
 diseases.list <- c("has_lung_disease", "has_kidney_disease", "has_diabetes", "is_smoker", "limited_activity")
 medication.list <- c("does_chemiotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications")
-symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "location", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell")
+symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "location", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell", "headache", "sore_throat")
 
 
 # --------------------
@@ -109,6 +109,7 @@ nmale <- sum(patient$gender == 1)
 pfemale <- rp(nfemale, npatient)
 pmale <- rp(nmale, npatient)
 
+#Age stats
 minage <- min(patient$age, na.rm=T)
 maxage <- max(patient$age, na.rm=T)
 
@@ -119,6 +120,17 @@ sdage <- round(sd(patient$age, na.rm=T), 1)
 
 #Number/percentage of people uploading data
 age.brackets <- get.age.brackets(patient)
+
+
+#BMI stats
+minbmi <- round(min(patient$BMI, na.rm=T), 1)
+maxbmi <- round(max(patient$BMI, na.rm=T), 1)
+
+medianbmi <- round(median(patient$BMI, na.rm=T), 1)
+meanbmi <- round(mean(patient$BMI, na.rm=T), 1)
+sdbmi <- round(sd(patient$BMI, na.rm=T), 1)
+
+
 
 # --------------------
 # Tested for COVID-19
@@ -191,6 +203,13 @@ tmp$shortness_of_breath_binary[tmp$shortness_of_breath != "no"] <- "t"
 
 shortness_of_breath <- summary.binary.traits("shortness_of_breath_binary", tmp)
 
+#Extra stats
+tot.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath))
+having.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath != "no")
+mild.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "mild")
+significant.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "significant")
+severe.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "severe")
+
 
 #Fatigue is categorical
 tmp <- na.omit(merged[, c("age", "gender", "fatigue")])
@@ -198,6 +217,12 @@ tmp$fatigue_binary[tmp$fatigue == "no"] <- "f"
 tmp$fatigue_binary[tmp$fatigue != "no"] <- "t"
 
 fatigue <- summary.binary.traits("fatigue_binary", tmp)
+
+#Extra stats
+tot.fatigue <- sum(!is.na(assessment$fatigue))
+having.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue != "no")
+mild.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue == "mild")
+severe.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue == "severe")
 
 
 # --------------------
@@ -211,6 +236,14 @@ median.temperature <- round(median(temperature), 1)
 mean.temperature <- round(mean(temperature), 1)
 sd.temperature <- round(sd(temperature), 1)
 
+
+# --------------------
+# Stats for fatigue
+# --------------------
+
+# --------------------
+# Stats for shortness of breath
+# --------------------
 
 
 

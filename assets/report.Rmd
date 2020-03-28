@@ -17,7 +17,7 @@ output:
 # Data collected
 
 As of `r day` the COVID-19 radar application got data for `r npatient` individuals, `r nfemale` of whom were females (`r pfemale`%) and `r nmale` males (`r pmale`%).
-Their age ranged from `r minage` to `r maxage` year old, with a median of `r medianage` (mean=`r meanage`, SD=`r sdage`).
+Their age ranged from `r minage` to `r maxage` year old, with a median of `r medianage` (mean=`r meanage`, SD=`r sdage`). `r sum(patient$contact_health_worker == "t")` contacted a health worker.
 
 
 When we look at different age brackets, this is what we see:
@@ -25,6 +25,8 @@ When we look at different age brackets, this is what we see:
 ````{r, echo=FALSE}
 age.brackets
 ````
+
+We also calculated their body mass index (or [BMI](https://en.wikipedia.org/wiki/Body_mass_index)) which had a median of `r medianbmi` kg/m^2 (mean=`r meanbmi`, SD=`r sdbmi`).
 
 
 ## Smoking status
@@ -236,7 +238,7 @@ symptoms$persistent_cough$brackets
 
 ## Shortness of breath
 
-Out of `r sum(!is.na(assessment$shortness_of_breath))` who answered regarding shortness of breath, `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath != "no")` reported experiencing it. For `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "mild")` it was mild, for `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "significant")` it was significant, and for `r sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "severe")` it was severe.
+Out of `r tot.shortness_of_breath` who answered regarding shortness of breath, `r having.shortness_of_breath` reported experiencing it (`r rp(having.shortness_of_breath, tot.shortness_of_breath)`). For `r mild.shortness_of_breath` it was mild (`r rp(mild.shortness_of_breath, having.shortness_of_breath)`%), for `r significant.shortness_of_breath` it was significant (`r rp(significant.shortness_of_breath, having.shortness_of_breath)`%), and for `r severe.shortness_of_breath` it was severe (`r rp(severe.shortness_of_breath, having.shortness_of_breath)`%).
 
 Taking into account as those reporting having shortness of breath, this is what we observe:
 
@@ -264,6 +266,22 @@ and this is the breakdown for age:
 symptoms$chest_pain$brackets
 ````
 
+
+## Sore throat
+
+
+````{r, echo=FALSE}
+symptoms$sore_throat$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$sore_throat$brackets
+````
+
+
+
 ## Hoarse voice
 
 
@@ -276,6 +294,21 @@ and this is the breakdown for age:
 ````{r, echo=FALSE}
 symptoms$hoarse_voice$brackets
 ````
+
+
+## Headache
+
+
+````{r, echo=FALSE}
+symptoms$headache$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$headache$brackets
+````
+
 
 ## Loss of sense of smell
 
@@ -292,7 +325,7 @@ symptoms$loss_of_smell$brackets
 
 ## Fatigue
 
-Out of `r sum(!is.na(assessment$fatigue))` who answered regarding experiencing fatigue, `r sum(!is.na(assessment$fatigue) & assessment$fatigue != "no")` reported experiencing it. For `r sum(!is.na(assessment$fatigue) & assessment$fatigue == "mild")` it was mild, and for `r  sum(!is.na(assessment$fatigue) & assessment$fatigue == "severe")` it was severe.
+Out of `r tot.fatigue ` who answered regarding experiencing fatigue, `r having.fatigue` reported experiencing it. For `r mild.fatigue` it was mild (`r rp(mild.fatigue, having.fatigue)`%), and for `r severe.fatigue` it was severe (`r rp(severe.fatigue, having.fatigue)`%).
 
 Taking into account as those reporting having fatigue, this is what we observe:
 
