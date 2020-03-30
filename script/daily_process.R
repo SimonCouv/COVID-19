@@ -6,6 +6,12 @@
 # Example: 
 #		Rscript daily_process.R 20200326 ../data/ 
 
+# --------------------
+# Constants
+# --------------------
+
+#Max numbers of cores for parallel execution
+MAX_CORES <- 7
 
 # --------------------
 # Shell parameters

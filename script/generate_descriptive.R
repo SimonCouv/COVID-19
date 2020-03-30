@@ -10,8 +10,8 @@
 # Global variables
 # --------------------
  
-diseases.list <- c("has_lung_disease", "has_kidney_disease", "has_diabetes", "is_smoker", "limited_activity")
-medication.list <- c("does_chemiotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications")
+diseases.list <- c("has_lung_disease", "has_kidney_disease", "has_diabetes", "is_smoker", "limited_activity", "has_cancer")
+medication.list <- c("does_chemiotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications", "takes_aspirin", "takes_blood_pressure_medications_sartan")
 symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "location", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell", "headache", "sore_throat")
 
 
@@ -121,7 +121,6 @@ sdage <- round(sd(patient$age, na.rm=T), 1)
 #Number/percentage of people uploading data
 age.brackets <- get.age.brackets(patient)
 
-
 #BMI stats
 minbmi <- round(min(patient$BMI, na.rm=T), 1)
 maxbmi <- round(max(patient$BMI, na.rm=T), 1)
@@ -161,6 +160,7 @@ palready_had_covid <- rp(nrow(already_had_covid), sum(!is.na(patient$already_had
 #Number/percentage of people testing positive
 age.brackets.already_had_covid <- get.age.brackets(already_had_covid)  
 
+
 # --------------------
 # Diseases
 # --------------------
@@ -178,6 +178,9 @@ names(medications) <- medication.list
 # --------------------
 # Symptoms
 # --------------------
+
+#Sympthoms are only for the day
+assessment <- assessment[assessment$day == day, ]
 
 # Symptoms are in the assessment df, but age and sex in the patient one 
 # Categorical variables are subsetted independently
@@ -236,14 +239,6 @@ median.temperature <- round(median(temperature), 1)
 mean.temperature <- round(mean(temperature), 1)
 sd.temperature <- round(sd(temperature), 1)
 
-
-# --------------------
-# Stats for fatigue
-# --------------------
-
-# --------------------
-# Stats for shortness of breath
-# --------------------
 
 
 

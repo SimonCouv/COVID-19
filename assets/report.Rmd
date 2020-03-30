@@ -93,6 +93,19 @@ and this is the breakdown for age:
 diseases$has_diabetes$brackets
 ````
 
+### Cancer
+
+These are our stats for all the individuals who participated:
+
+````{r, echo=FALSE}
+diseases$has_cancer$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+diseases$has_cancer$brackets
+````
 
 
 ## Medications
@@ -114,7 +127,9 @@ and this is the breakdown for age:
 medications$takes_corticosteroids$brackets
 ````
 
-### Blood pressure medication
+### Blood pressure medications
+
+**ACE inhibitor**
 
 We asked whether they regularly took blood pressure medications ending in "-pril", such as enalapril, ramipril, perindopril, and these are our stats:
 
@@ -126,6 +141,37 @@ and this is the breakdown for age:
 
 ````{r, echo=FALSE}
 medications$takes_blood_pressure_medications$brackets
+````
+
+
+**Angiotensin receptor blocker**
+
+We asked whether they regularly took blood pressure medications ending in "-sartan", such as losartan, valsartan, irbesartan, and these are our stats:
+
+````{r, echo=FALSE}
+medications$takes_blood_pressure_medications_sartan$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$takes_blood_pressure_medications_sartan$brackets
+````
+
+
+### Aspirin
+
+We asked whether they regularly took aspirin (either baby aspirin or standard dose), and these are our stats:
+
+
+````{r, echo=FALSE}
+medications$takes_aspirin$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$takes_aspirin$brackets
 ````
 
 
@@ -190,7 +236,7 @@ age.brackets.positive
 ````
 
 
-# What are the reported symptoms?
+# What are the reported symptoms on `r day`?
 
 `r sum(!is.na(assessment$health_status) & assessment$health_status == "healthy")` individuals told us that they were healthy, but `r sum(!is.na(assessment$health_status) & assessment$health_status == "not_healthy")` reported that they were not feeling quite right.
 

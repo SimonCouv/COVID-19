@@ -39,14 +39,25 @@ mysplit <- function (x, f)
 # --------------------
 
 setwd(wdir)
-patient <- read.csv(paste0("patients_export_", timestamp, ".csv"))
+
+#Patient
+#From 20200329, the patien file arrived in multiple files, plus the 
+#name stam changed slightly. 
+#Only the first file has the header
+patient.files <- dir(pattern=paste0("patients_export_", timestamp))
+patient <- as.data.frame(do.call(rbind, lapply(patient.files, read.csv, header=F)))
+colnames(patient) <- patient[1, ]
+patient <- patient[-1, ]
+
+#Assessment
 assessment <- read.csv(paste0("assessments_export_", timestamp, ".csv"))
+
 
 # --------------------
 # Get ages
 # --------------------
 
-patient$age <- 2020-patient$year_of_birth
+patient$age <- 2020-as.numeric(patient$year_of_birth)
 
 #Filters for age
 patient <- patient[MINAGE <= patient$age & patient$age <= MAXAGE, ]
@@ -55,10 +66,10 @@ patient <- patient[MINAGE <= patient$age & patient$age <= MAXAGE, ]
 # Convert height and weight in metric system
 # --------------------
 
-patient$height <- patient$height_cm
-patient$height[!is.na(patient$height_feet) & is.na(patient$height_cm)]  <- patient$height_feet[!is.na(patient$height_feet) & is.na(patient$height_cm)]/0.032808
+patient$height <- as.numeric(patient$height_cm)
+patient$height[!is.na(patient$height_feet) & is.na(patient$height_cm)]  <- as.numeric(patient$height_feet[!is.na(patient$height_feet) & is.na(patient$height_cm)])/0.032808
 
-patient$weight <- patient$weight_kg
+patient$weight <- as.numeric(patient$weight_kg)
 patient$weight[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)]  <- as.numeric(patient$weight_pounds[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)])/2.2046
 
 #Removing some useless cols
@@ -106,6 +117,8 @@ assessment[assessment == ""] <- NA
 # Convert temperature in metric system
 # --------------------
 
+assessment$temperature <- as.numeric(assessment$temperature)
+
 #Trying to rescue some people that wrote "C" as temperature unit, but reported Fahrenheit values, and vice versa
 assessment$temperature_unit[!is.na(assessment$temperature) & assessment$temperature > 90 & assessment$temperature_unit == "C"] <- "F"
 assessment$temperature_unit[!is.na(assessment$temperature) & assessment$temperature < 50 & assessment$temperature_unit == "F"] <- "C"
@@ -131,23 +144,55 @@ assessment$time <- sapply(as.character(assessment$updated_at), function(s) {
 	unlist(strsplit(s, split="\\."))[1]
 })
 
-#I divide the individuals with one or more observations -- at this stage,
-#most of the people included only one measurement, and this speed up the
-#processing
-counts <- table(assessment$patient_id)
-
-single <- assessment[assessment$patient_id %in% names(counts)[counts == 1], ]
-multiple <- assessment[assessment$patient_id %in% names(counts)[counts != 1], ]
-multiple <- mysplit(multiple, multiple$patient_id)
-
-#For multiple observations we keep the last one (we notice that often the first 
-#measurement is a mistake)
-multiple <- as.data.frame(do.call(rbind, lapply(multiple, function(m)
+# Dividing the main data frame in days
+# For multiple observations within the same day, we keep the last one
+# (we notice that often the first measurement is a mistake)
+assessment <- parallel::mclapply(mysplit(assessment, assessment$day), function(a)
 {
-	m <- m[order(m$day, m$time), ]
-	m[nrow(m), ]
-})))
+	#I order the dataframe by individuals and time (hours:minites), and then I keep the
+	#oldest one (duplicates remove )
+	a <- a[order(a$patient_id, a$time, decreasing=TRUE), ]	
+	a[!duplicated(a$patient_id), ]
+}, mc.cores=MAX_CORES)
+assessment <- as.data.frame(do.call(rbind, assessment))
 
-assessment <- rbind(single, multiple)
+
+#We propagate a positive/negative COVID-19 tests to all the assessment after this first 
+#positive result. 
+
+#Of course, we do this only for individuals with more than one observation
+count <- table(assessment$patient_id)
+single.measurement <- assessment[assessment$patient_id %in% names(count)[count == 1], ]
+multiple.measurements <- assessment[assessment$patient_id %in% names(count)[count > 1], ]
+# and that thad a COVID-19 test with a confirmed result
+confirmed.test.IDs <- multiple.measurements$patient_id[multiple.measurements$tested_covid_positive %in% c("yes", "no")]
+to.check <- multiple.measurements[multiple.measurements$patient_id %in% confirmed.test.IDs, ]
+no.test <- multiple.measurements[!multiple.measurements$patient_id %in% confirmed.test.IDs, ]
+
+to.check <- parallel::mclapply(mysplit(to.check, to.check$patient_id), function(m)
+{
+	#Removes individuals with both a positive and a negative test
+	if ("yes" %in% m$tested_covid_positive & "no" %in% m$tested_covid_positive) 
+	{ 
+		m$patient_id <- NA
+		return(m)
+	}
+		
+	m <- m[order(m$patient_id, m$time, decreasing=FALSE), ]
+	index <- min(which(m$tested_covid_positive %in% c("yes", "no")))
+	
+	#I propagate only if it not the last line
+	if (index != nrow(m))
+	{
+		m$tested_covid_positive[(index+1):nrow(m)] <- m$tested_covid_positive[index]
+	}
+	
+	m
+}, mc.cores=1)
+to.check <- as.data.frame(do.call(rbind, to.check))
+to.check <- to.check[!is.na(to.check), ]
+
+assessment <- rbind(single.measurement, to.check, no.test)
+rm(single.measurement, to.check, no.test, multiple.measurements, confirmed.test.IDs)
 
 save(patient, assessment, file=paste0(wdir, "/patient_and_assessments_cleaned_", timestamp, ".RData"))

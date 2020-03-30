@@ -6,12 +6,24 @@ Participants using the app recorded information about their health on a daily ba
 
 Read more about the app and the research [here](https://twinsuk.ac.uk/our-research/covid-19/).
 
+## Depends on
+
+* parallel
+* rmarkdown
+
 
 ### Data cleaning
 
 See `daily_process.R` in the `script` folder.
 
 
+## Changelog
+
+### 2020-03-30
+
+Enhancements:
+* Assessment includes longitudinal data (one assessment person/day)
+* Stats are only for the day, and do not take into account previous assessments
 
 ## Contributors
 
