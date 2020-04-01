@@ -18,6 +18,9 @@ MAXHEIGHT <- 220
 MINWEIGHT <- 40
 MAXWEIGHT <- 200
 
+MINBMI <- 15
+MAXBMI <- 55
+
 MINTEMPERATURE <- 35
 MAXTEMPERATURE <- 42
 
@@ -44,20 +47,28 @@ setwd(wdir)
 #From 20200329, the patien file arrived in multiple files, plus the 
 #name stam changed slightly. 
 #Only the first file has the header
-patient.files <- dir(pattern=paste0("patients_export_", timestamp))
+patient.files <- dir(pattern=paste0("patients_export_", timestamp, "_NoPostcode"))
 patient <- as.data.frame(do.call(rbind, lapply(patient.files, read.csv, header=F)))
 colnames(patient) <- patient[1, ]
 patient <- patient[-1, ]
 
+#Geocode
+geocodes <- read.csv(paste0("patients_export_", timestamp, "_Geocodes.csv"))
+geocodes$X <- NULL
+patient <- merge(patient, geocodes, by="id")
+
 #Assessment
 assessment <- read.csv(paste0("assessments_export_", timestamp, ".csv"))
 
+#I can manage NA better than empty strings
+patient[patient == ""] <- NA
+assessment[assessment == ""] <- NA
 
 # --------------------
 # Get ages
 # --------------------
 
-patient$age <- 2020-as.numeric(patient$year_of_birth)
+patient$age <- 2020-as.numeric(as.character(patient$year_of_birth))
 
 #Filters for age
 patient <- patient[MINAGE <= patient$age & patient$age <= MAXAGE, ]
@@ -66,18 +77,21 @@ patient <- patient[MINAGE <= patient$age & patient$age <= MAXAGE, ]
 # Convert height and weight in metric system
 # --------------------
 
-patient$height <- as.numeric(patient$height_cm)
-patient$height[!is.na(patient$height_feet) & is.na(patient$height_cm)]  <- as.numeric(patient$height_feet[!is.na(patient$height_feet) & is.na(patient$height_cm)])/0.032808
+patient$height <- as.numeric(as.character(patient$height_cm))
+patient$height[!is.na(patient$height_feet) & is.na(patient$height_cm)]  <- as.numeric(as.character(patient$height_feet[!is.na(patient$height_feet) & is.na(patient$height_cm)]))/0.032808
 
-patient$weight <- as.numeric(patient$weight_kg)
-patient$weight[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)]  <- as.numeric(patient$weight_pounds[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)])/2.2046
+patient$weight <- as.numeric(as.character(patient$weight_kg))
+patient$weight[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)]  <- as.numeric(as.character(patient$weight_pounds[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)]))/2.2046
 
 #Removing some useless cols
 patient$height_feet <- patient$height_cm <- patient$weight_pounds <- patient$weight_kg <- NULL
 
+patient$BMI <- patient$weight/(patient$height/100)^2
+
 #Flag people with unreliable infomation on height
 patient$unreliable <- patient$height < MINHEIGHT | patient$height > MAXHEIGHT | is.na(patient$height)
 patient$unreliable <- patient$unreliable | (patient$weight < MINWEIGHT | patient$weight > MAXWEIGHT | is.na(patient$weight) )
+patient$unreliable <- patient$unreliable | (patient$BMI < MINBMI | patient$BMI > MAXBMI | is.na(patient$BMI) )
 
 # --------------------
 # Who is female?
@@ -97,27 +111,17 @@ patient$unreliable <- patient$unreliable | (patient$weight < MINWEIGHT | patient
 patient <- patient[!patient$unreliable, ]
 
 # --------------------
-# Extra variables
-# --------------------
-
-patient$BMI <- patient$weight/(patient$height/100)^2
-
-# --------------------
 # Start working on the daily assessment data
 # --------------------
 
 #Only people who were reliable
 assessment <- assessment[assessment$patient_id %in% patient$id, ]
 
-#I can manage NA better than empty strings
-assessment[assessment == ""] <- NA
-
-
 # --------------------
 # Convert temperature in metric system
 # --------------------
 
-assessment$temperature <- as.numeric(assessment$temperature)
+assessment$temperature <- as.numeric(as.character(assessment$temperature))
 
 #Trying to rescue some people that wrote "C" as temperature unit, but reported Fahrenheit values, and vice versa
 assessment$temperature_unit[!is.na(assessment$temperature) & assessment$temperature > 90 & assessment$temperature_unit == "C"] <- "F"
@@ -126,7 +130,7 @@ assessment$temperature_unit[!is.na(assessment$temperature) & assessment$temperat
 #Convert 
 assessment$temperature_C <- assessment$temperature
 assessment$temperature_C[is.na(assessment$temperature_unit) | assessment$temperature_unit == "F"] <- NA
-assessment$temperature_C[!is.na(assessment$temperature_unit) & assessment$temperature_unit == "F"] <- (as.numeric(assessment$temperature[!is.na(assessment$temperature_unit) & assessment$temperature_unit == "F"])-32)/1.8
+assessment$temperature_C[!is.na(assessment$temperature_unit) & assessment$temperature_unit == "F"] <- (as.numeric(as.character(assessment$temperature[!is.na(assessment$temperature_unit) & assessment$temperature_unit == "F"]))-32)/1.8
 
 #Removing some useless cols
 assessment$temperature <- assessment$temperature_unit <- NULL
