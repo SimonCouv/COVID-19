@@ -41,3 +41,6 @@ Data cleaning and demographics:
 
 The code included in this repo is licensed under GNU GPL v3.
 
+## Disclaimer
+
+These scripts are distributed in the hope that they will be useful, but WITHOUT ANY WARRANTY. 
