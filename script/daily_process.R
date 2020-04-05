@@ -11,7 +11,7 @@
 # --------------------
 
 #Max numbers of cores for parallel execution
-MAX_CORES <- 7
+MAX_CORES <- 4
 
 # --------------------
 # Shell parameters

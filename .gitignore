@@ -38,7 +38,8 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# Data 
+# Data & reports 
 data/
+reports/
 *.xlsx
 .DS_Store

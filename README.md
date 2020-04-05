@@ -8,6 +8,7 @@ Read more about the app and the research [here](https://twinsuk.ac.uk/our-resear
 
 ## Depends on
 
+* data.table
 * parallel
 * rmarkdown
 
@@ -18,6 +19,17 @@ See `daily_process.R` in the `script` folder.
 
 
 ## Changelog
+
+### 2020-04-05
+
+Enhancements:
+* COVID-19 test results (and the fact that the user had a test) are propagated to following assessments
+* Checks whether individuals who had an answer from the COVID-19 test also declared of having had a test
+* Users are filtered for BMI
+* Only users with at least a valid assessment are retained 
+* Fastest selection of daily assessment
+* Reports are no longer added to the repo
+* Minor fixes
 
 ### 2020-03-30
 

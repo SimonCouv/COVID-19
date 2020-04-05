@@ -16,9 +16,8 @@ output:
 
 # Data collected
 
-As of `r day` the COVID-19 radar application got data for `r npatient` individuals, `r nfemale` of whom were females (`r pfemale`%) and `r nmale` males (`r pmale`%).
-Their age ranged from `r minage` to `r maxage` year old, with a median of `r medianage` (mean=`r meanage`, SD=`r sdage`). `r sum(patient$contact_health_worker == "t")` contacted a health worker.
-
+As of `r day` the COVID-19 radar application got data for `r npatient` users, `r nfemale` of whom were females (`r pfemale`%) and `r nmale` males (`r pmale`%).
+Their age ranged from `r minage` to `r maxage` year old, with a median of `r medianage` (mean=`r meanage`, SD=`r sdage`). 
 
 When we look at different age brackets, this is what we see:
 
@@ -28,6 +27,11 @@ age.brackets
 
 We also calculated their body mass index (or [BMI](https://en.wikipedia.org/wiki/Body_mass_index)) which had a median of `r medianbmi` kg/m^2 (mean=`r meanbmi`, SD=`r sdbmi`).
 
+`r sum(patient$contact_health_worker == "True", na.rm=T)` users contacted a health worker.
+
+`r nhealthcare` are healthcare professionals, `r healthcare.treat` of whom are treating coronavirus patients (`r rp(healthcare.treat, nhealthcare)`%).
+
+Our users provided us with `r nrow(assessment)` daily entries, which correspond to an average of `r mean.logs` per user. `r unique.log` users just logged a single daily value (`r rp(unique.log, length(number.log))`%), and some super-users logged `r max.log` times (that is `r max.log` days).
 
 ## Smoking status
 
@@ -52,7 +56,7 @@ We asked the app users whether they were suffering from a set of diseases, which
 
 ### Lung diseases
 
-These are our stats for all the individuals who participated:
+These are our stats for all the users who participated:
 
 ````{r, echo=FALSE}
 diseases$has_lung_disease$general
@@ -67,7 +71,7 @@ diseases$has_lung_disease$brackets
 
 ### Kidney diseases
 
-These are our stats for all the individuals who participated:
+These are our stats for all the users who participated:
 
 ````{r, echo=FALSE}
 diseases$has_kidney_disease$general
@@ -81,7 +85,7 @@ diseases$has_kidney_disease$brackets
 
 ### Diabetes
 
-These are our stats for all the individuals who participated:
+These are our stats for all the users who participated:
 
 ````{r, echo=FALSE}
 diseases$has_diabetes$general
@@ -95,7 +99,7 @@ diseases$has_diabetes$brackets
 
 ### Cancer
 
-These are our stats for all the individuals who participated:
+These are our stats for all the users who participated:
 
 ````{r, echo=FALSE}
 diseases$has_cancer$general
@@ -177,7 +181,7 @@ medications$takes_aspirin$brackets
 
 ### Chemotherapy or immunotherapy for cancer
 
-These are our stats for all the individuals who participated:
+These are our stats for all the users who participated:
 
 ````{r, echo=FALSE}
 medications$does_chemiotherapy$general
@@ -227,18 +231,32 @@ age.brackets.already_had_covid
 `r nrow(positive)+nrow(negative)` were tested for COVID-19, and `r nrow(positive)` confirmed the disease (`r ppositive`%).
 `r sum(positive$gender==0)` were females (`r pfemale.positive`%).
 
-`r nrow(waiting)` individuals are still waiting for the results of the test.
+`r nrow(waiting)` users are still waiting for the results of the test.
 
-When we look at different age brackets, this is what we see:
+When we look at different age brackets, this is what we see for all users:
+
+````{r, echo=FALSE}
+age.brackets.tested
+````
+
+and for those testing positive
 
 ````{r, echo=FALSE}
 age.brackets.positive
 ````
 
+## What symptoms the users who tested positive reported?
 
-# What are the reported symptoms on `r day`?
+````{r, echo=FALSE}
+symptoms.positive
+````
 
-`r sum(!is.na(assessment$health_status) & assessment$health_status == "healthy")` individuals told us that they were healthy, but `r sum(!is.na(assessment$health_status) & assessment$health_status == "not_healthy")` reported that they were not feeling quite right.
+(Classic symptoms identify all users that reported all of the following: fever, shortness of breath, and persistent cough)
+
+
+# What are the reported symptoms on `r day` for all our users?
+
+`r sum(!is.na(assessment$health_status) & assessment$health_status == "healthy")` users told us that they were healthy (`r rp(sum(!is.na(assessment$health_status) & assessment$health_status == "healthy"), sum(!is.na(assessment$health_status)))`%), but `r sum(!is.na(assessment$health_status) & assessment$health_status == "not_healthy")` reported that they were not feeling quite right (`r rp(sum(!is.na(assessment$health_status) & assessment$health_status == "not_healthy"), sum(!is.na(assessment$health_status)))`%).
 
 ````{r, echo=FALSE}
 health_status$general
@@ -250,14 +268,14 @@ and this is the breakdown for age:
 health_status$brackets
 ````
 
-We then asked the people that were not feeling fine which were their symptoms, and we details about them below:
+We then asked the users that were not feeling fine which were their symptoms, and we details about them below:
 
 
 ## Fever
 
-`r length(temperature)` individuals reported their temperature. The median value was `r median.temperature` (mean=`r mean.temperature`, SD=`r sd.temperature`). `r sum(temperature > 38)` had a temperature higher than 38 C.
+`r length(temperature)` users reported their temperature. The median value was `r median.temperature` (mean=`r mean.temperature`, SD=`r sd.temperature`). `r sum(temperature > 38)` had a temperature higher than 38 C.
 
-`r sum(!is.na(assessment$fever) & assessment$fever == "t")` instead reported of having fever -- albeit not everyone of them reported their temperature:
+`r sum(!is.na(assessment$fever) & assessment$fever == "True")` instead reported of having fever -- albeit not everyone of them reported their temperature:
 
 ````{r, echo=FALSE}
 symptoms$fever$general
@@ -423,5 +441,8 @@ and this is the breakdown for age:
 ````{r, echo=FALSE}
 symptoms$skipped_meals$brackets
 ````
+
+
+
 
 

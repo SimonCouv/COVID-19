@@ -2,7 +2,7 @@
 # Usage
 # --------------------
 
-# This is an helper file. It should not be called by the user, who should
+# This is an helper file. It should not be called by the patient, who should
 # run the daily_process.R instead
 
 # --------------------
@@ -43,19 +43,10 @@ mysplit <- function (x, f)
 
 setwd(wdir)
 
-#Patient
-#From 20200329, the patien file arrived in multiple files, plus the 
-#name stam changed slightly. 
-#Only the first file has the header
-patient.files <- dir(pattern=paste0("patients_export_", timestamp, "_NoPostcode"))
-patient <- as.data.frame(do.call(rbind, lapply(patient.files, read.csv, header=F)))
-colnames(patient) <- patient[1, ]
-patient <- patient[-1, ]
+print("Loading data")
 
-#Geocode
-geocodes <- read.csv(paste0("patients_export_", timestamp, "_Geocodes.csv"))
-geocodes$X <- NULL
-patient <- merge(patient, geocodes, by="id")
+#Patient
+patient <- read.csv(paste0("patients_export_geocodes_", timestamp, ".csv"))
 
 #Assessment
 assessment <- read.csv(paste0("assessments_export_", timestamp, ".csv"))
@@ -64,6 +55,8 @@ assessment <- read.csv(paste0("assessments_export_", timestamp, ".csv"))
 patient[patient == ""] <- NA
 assessment[assessment == ""] <- NA
 
+print("Data loaded")
+
 # --------------------
 # Get ages
 # --------------------
@@ -71,27 +64,21 @@ assessment[assessment == ""] <- NA
 patient$age <- 2020-as.numeric(as.character(patient$year_of_birth))
 
 #Filters for age
-patient <- patient[MINAGE <= patient$age & patient$age <= MAXAGE, ]
+patient <- patient[!is.na(patient$age) & MINAGE <= patient$age & patient$age <= MAXAGE, ]
 
 # --------------------
-# Convert height and weight in metric system
+# Flag people who are "unreliable"
 # --------------------
 
-patient$height <- as.numeric(as.character(patient$height_cm))
-patient$height[!is.na(patient$height_feet) & is.na(patient$height_cm)]  <- as.numeric(as.character(patient$height_feet[!is.na(patient$height_feet) & is.na(patient$height_cm)]))/0.032808
+#Systems that read factors...
+patient$height_cm <- as.numeric(as.character(patient$height_cm))
+patient$weight_kg <- as.numeric(as.character(patient$weight_kg))
+patient$bmi <- as.numeric(as.character(patient$bmi))
 
-patient$weight <- as.numeric(as.character(patient$weight_kg))
-patient$weight[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)]  <- as.numeric(as.character(patient$weight_pounds[!is.na(patient$weight_pounds) & is.na(patient$weight_kg)]))/2.2046
-
-#Removing some useless cols
-patient$height_feet <- patient$height_cm <- patient$weight_pounds <- patient$weight_kg <- NULL
-
-patient$BMI <- patient$weight/(patient$height/100)^2
-
-#Flag people with unreliable infomation on height
-patient$unreliable <- patient$height < MINHEIGHT | patient$height > MAXHEIGHT | is.na(patient$height)
-patient$unreliable <- patient$unreliable | (patient$weight < MINWEIGHT | patient$weight > MAXWEIGHT | is.na(patient$weight) )
-patient$unreliable <- patient$unreliable | (patient$BMI < MINBMI | patient$BMI > MAXBMI | is.na(patient$BMI) )
+patient$unreliable <- FALSE
+patient$unreliable <- patient$height_cm < MINHEIGHT | patient$height_cm > MAXHEIGHT | is.na(patient$height_cm)
+patient$unreliable <- patient$unreliable | (patient$weight_kg < MINWEIGHT | patient$weight_kg > MAXWEIGHT | is.na(patient$weight_kg) )
+patient$unreliable <- patient$unreliable | (patient$bmi < MINBMI | patient$bmi > MAXBMI | is.na(patient$bmi) )
 
 # --------------------
 # Who is female?
@@ -109,6 +96,8 @@ patient$unreliable <- patient$unreliable | (patient$BMI < MINBMI | patient$BMI >
 
 # unreliable <- patient[patient$unreliable, ]
 patient <- patient[!patient$unreliable, ]
+print("Patient data cleaned")
+
 
 # --------------------
 # Start working on the daily assessment data
@@ -135,44 +124,58 @@ assessment$temperature_C[!is.na(assessment$temperature_unit) & assessment$temper
 #Removing some useless cols
 assessment$temperature <- assessment$temperature_unit <- NULL
 
-#Removing observation with weirs temperatures
+#Removing observation with weird temperatures
 assessment <- assessment[is.na(assessment$temperature_C) | (MINTEMPERATURE < assessment$temperature_C & assessment$temperature_C < MAXTEMPERATURE), ]
 
 # --------------------
 # Working with longitudinal data
 # --------------------
 
-assessment$day <- sapply(as.character(assessment$updated_at), function(s) unlist(strsplit(s, split=" "))[1])
-assessment$time <- sapply(as.character(assessment$updated_at), function(s) {
-	s <- unlist(strsplit(s, split=" "))[2]
-	unlist(strsplit(s, split="\\."))[1]
-})
-
-# Dividing the main data frame in days
-# For multiple observations within the same day, we keep the last one
-# (we notice that often the first measurement is a mistake)
-assessment <- parallel::mclapply(mysplit(assessment, assessment$day), function(a)
+daytime <- t(sapply(as.character(assessment$updated_at), function(s)
 {
-	#I order the dataframe by individuals and time (hours:minites), and then I keep the
-	#oldest one (duplicates remove )
-	a <- a[order(a$patient_id, a$time, decreasing=TRUE), ]	
-	a[!duplicated(a$patient_id), ]
-}, mc.cores=MAX_CORES)
-assessment <- as.data.frame(do.call(rbind, assessment))
+	s <- unlist(strsplit(s, split=" "))
+	day <- s[1]
+	time <- unlist(strsplit(s[2], split="\\."))[1]
+	c(day, time)
+}))
+colnames(daytime) <- c("day", "time")
+assessment <- cbind(assessment, daytime)
+rm(daytime)
 
 
 #We propagate a positive/negative COVID-19 tests to all the assessment after this first 
-#positive result. 
-
+#positive/negative result. 
 #Of course, we do this only for individuals with more than one observation
+tested.answers <- c("yes", "no", "waiting")
+
 count <- table(assessment$patient_id)
 single.measurement <- assessment[assessment$patient_id %in% names(count)[count == 1], ]
 multiple.measurements <- assessment[assessment$patient_id %in% names(count)[count > 1], ]
-# and that thad a COVID-19 test with a confirmed result
-confirmed.test.IDs <- multiple.measurements$patient_id[multiple.measurements$tested_covid_positive %in% c("yes", "no")]
-to.check <- multiple.measurements[multiple.measurements$patient_id %in% confirmed.test.IDs, ]
-no.test <- multiple.measurements[!multiple.measurements$patient_id %in% confirmed.test.IDs, ]
 
+# This is an extra cross-check,  where we are asking to people who had a positive/negative results
+# also to have had answered true to the fact that they had a COVID-19 test
+had.covid.test <- unique(assessment$patient_id[assessment$had_covid_test == "True"])
+
+#This is done for patients with a single assessment
+had.answer.ids <- unique(single.measurement$patient_id[!is.na(single.measurement$tested_covid_positive) & single.measurement$tested_covid_positive %in% tested.answers])
+#These who had and answer and should also have done the test
+to.check <- single.measurement[single.measurement$patient_id %in% had.answer.ids, ]
+to.check <- to.check[to.check$patient_id %in% had.covid.test, ]
+#These had an assessment, but no test
+no.test <- single.measurement[!single.measurement$patient_id %in% had.answer.ids, ]
+#Done
+single.measurement <- rbind(to.check, no.test)
+rm(had.answer.ids, to.check, no.test)
+
+#This is done for patients with multiple assessments
+had.answer.ids <- unique(multiple.measurements$patient_id[!is.na(multiple.measurements$tested_covid_positive) & multiple.measurements$tested_covid_positive %in% tested.answers])
+#These who had and answer and should also have done the test
+to.check <- multiple.measurements[multiple.measurements$patient_id %in% had.answer.ids, ]
+to.check <- to.check[to.check$patient_id %in% had.covid.test, ]
+#These had multiple assessments, but no test
+no.test <- multiple.measurements[!multiple.measurements$patient_id %in% had.answer.ids, ]
+
+#Looks at propagating those with multiple assessments and answer
 to.check <- parallel::mclapply(mysplit(to.check, to.check$patient_id), function(m)
 {
 	#Removes individuals with both a positive and a negative test
@@ -181,22 +184,66 @@ to.check <- parallel::mclapply(mysplit(to.check, to.check$patient_id), function(
 		m$patient_id <- NA
 		return(m)
 	}
-		
-	m <- m[order(m$patient_id, m$time, decreasing=FALSE), ]
-	index <- min(which(m$tested_covid_positive %in% c("yes", "no")))
 	
-	#I propagate only if it not the last line
-	if (index != nrow(m))
+	m <- m[order(m$day, m$time, decreasing=FALSE), ]
+	
+	#If the patient is only waiting, there is no answer to propagate
+	if (sum(m$tested_covid_positive %in% c("yes", "no")) != 0)
 	{
-		m$tested_covid_positive[(index+1):nrow(m)] <- m$tested_covid_positive[index]
-	}
+		index <- min(which(m$tested_covid_positive %in% c("yes", "no")))
 	
+		#I propagate only if it not the last line
+		if (index != nrow(m))
+		{
+			m$tested_covid_positive[(index+1):nrow(m)] <- m$tested_covid_positive[index]
+		}
+	}
+	#FIXME: There is no propagation of the "waiting", which should stop once I get an answer
+		
+	#I also propagate the fact that they had a test (starting to propagate from they were
+	#either waiting or had a reply, whatever happened earlier)
+	index <- min(which(m$tested_covid_positive %in% tested.answers))
+	m$had_covid_test[index:nrow(m)] <- "True"
+		
 	m
-}, mc.cores=1)
+}, mc.cores=MAX_CORES)
 to.check <- as.data.frame(do.call(rbind, to.check))
-to.check <- to.check[!is.na(to.check), ]
+to.check <- to.check[!is.na(to.check$patient_id), ]
 
 assessment <- rbind(single.measurement, to.check, no.test)
-rm(single.measurement, to.check, no.test, multiple.measurements, confirmed.test.IDs)
+rm(single.measurement, to.check, no.test, multiple.measurements, had.answer.ids)
 
+# Dividing the main data frame in days
+# For multiple observations within the same day, we keep the last one
+# (we notice that often the first measurement is a mistake).
+# FIXME: Alternatively, we could create a field the latest log
+assessment <- mysplit(assessment, assessment$day)
+for (i in 1:length(assessment))
+{
+	assessment[[i]] <- data.table::as.data.table(assessment[[i]])
+	data.table::setnames(assessment[[i]], colnames(assessment[[i]])[which(colnames(assessment[[i]]) == "patient_id")], 'patient_id')
+	data.table::setnames(assessment[[i]], colnames(assessment[[i]])[which(colnames(assessment[[i]]) == "time")], 'time')
+	
+	assessment[[i]] <- assessment[[i]][order(patient_id, time, decreasing=TRUE), ]	
+	assessment[[i]] <- as.data.frame(assessment[[i]][!duplicated(assessment[[i]]$patient_id), ])
+}
+assessment <- as.data.frame(do.call(rbind, assessment))
+
+print("Assessment data cleaned")
+
+
+# --------------------
+# Filters again for patients having data in both patient and assessment
+# --------------------
+
+ids <- intersect(patient$id, assessment$patient_id)
+patient <- patient[patient$id %in% ids, ]
+assessment <- assessment[assessment$patient_id %in% ids, ]
+
+# --------------------
+# Save data
+# --------------------
+
+print("Saving data")
 save(patient, assessment, file=paste0(wdir, "/patient_and_assessments_cleaned_", timestamp, ".RData"))
+

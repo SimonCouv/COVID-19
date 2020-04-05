@@ -12,8 +12,7 @@
  
 diseases.list <- c("has_lung_disease", "has_kidney_disease", "has_diabetes", "is_smoker", "limited_activity", "has_cancer")
 medication.list <- c("does_chemiotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications", "takes_aspirin", "takes_blood_pressure_medications_sartan")
-symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "location", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell", "headache", "sore_throat")
-
+symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell", "headache", "sore_throat")
 
 # --------------------
 # Functions
@@ -79,11 +78,11 @@ summary.binary.traits <- function(trait, df)
 	tot <- nrow(a)
 	
 	#People with trait
-	n <- sum(a$trait == "t")
+	n <- sum(a$trait == "True")
 	p <- rp(n, tot) 
 	
 	#Only people with traits, for the demographic within them
-	a <- a[a$trait == "t", ]
+	a <- a[a$trait == "True", ]
 	
 	#Females males in those with the trait
 	f <- rp(sum(a$gender == 0), nrow(a)) 
@@ -121,14 +120,23 @@ sdage <- round(sd(patient$age, na.rm=T), 1)
 #Number/percentage of people uploading data
 age.brackets <- get.age.brackets(patient)
 
-#BMI stats
-minbmi <- round(min(patient$BMI, na.rm=T), 1)
-maxbmi <- round(max(patient$BMI, na.rm=T), 1)
+#bmi stats
+minbmi <- round(min(patient$bmi, na.rm=T), 1)
+maxbmi <- round(max(patient$bmi, na.rm=T), 1)
 
-medianbmi <- round(median(patient$BMI, na.rm=T), 1)
-meanbmi <- round(mean(patient$BMI, na.rm=T), 1)
-sdbmi <- round(sd(patient$BMI, na.rm=T), 1)
+medianbmi <- round(median(patient$bmi, na.rm=T), 1)
+meanbmi <- round(mean(patient$bmi, na.rm=T), 1)
+sdbmi <- round(sd(patient$bmi, na.rm=T), 1)
 
+#Average numeber of data point logged
+mean.logs <- round(length(unique(assessment$patient_id))/nrow(assessment), 1)
+number.log <- table(assessment$patient_id)
+unique.log <- sum(number.log == 1)
+max.log <- max(number.log)
+
+
+nhealthcare <- sum(!is.na(patient$healthcare_professional) & patient$healthcare_professional %in% c("yes_does_not_treat", "yes_does_treat"))
+healthcare.treat <- sum(!is.na(patient$healthcare_professional) & patient$healthcare_professional == "yes_does_treat")
 
 
 # --------------------
@@ -136,10 +144,19 @@ sdbmi <- round(sd(patient$BMI, na.rm=T), 1)
 # --------------------
 
 # Who has taken the test, and what is the outcome? Or still waiting?
-tested <- patient[patient$id %in% unique(assessment$patient_id[assessment$had_covid_test == "t"]), ]
-positive <- patient[patient$id %in% unique(assessment$patient_id[assessment$tested_covid_positive %in% c("t","yes")]), ]
-negative <- patient[patient$id %in% unique(assessment$patient_id[assessment$tested_covid_positive %in% c("f","no")]), ]
-waiting <- patient[patient$id %in% unique(assessment$patient_id[assessment$tested_covid_positive == "waiting"]), ]
+# I am not using the had_covid_test variable here, but the tested_covid_positive one
+
+#FIXME: confirmed.test.IDs <- unique(multiple.measurements$patient_id[multiple.measurements$tested_covid_positive %in% c("yes", "no")])
+
+#This stores ID and result of the test
+tested <- na.omit(unique(assessment[, c("patient_id", "tested_covid_positive")]))
+tested <- merge(tested, patient, by.x="patient_id", by.y="id", all=F)
+
+age.brackets.tested <- get.age.brackets(tested)  
+
+positive <- tested[tested$tested_covid_positive == "yes", ]
+negative <- tested[tested$tested_covid_positive == "no", ]
+waiting <- tested[tested$tested_covid_positive == "waiting", ]
 
 #Demographics
 ppositive <- rp(nrow(positive), nrow(positive)+nrow(negative))
@@ -150,11 +167,60 @@ pmale.positive <- rp(sum(positive$gender==1), nrow(positive))
 age.brackets.positive <- get.age.brackets(positive)  
 
 # --------------------
+# Looking at those testing positive
+# --------------------
+
+assessment.positive <- assessment[!is.na(assessment$tested_covid_positive) & assessment$tested_covid_positive == "yes", c("patient_id", symptoms.list, "shortness_of_breath", "fatigue")]
+
+#Covert symptoms in logical binary values
+assessment.positive[assessment.positive == "True"] <- TRUE
+assessment.positive[assessment.positive == "False"] <- FALSE
+
+#These were categorical
+assessment.positive$shortness_of_breath[assessment.positive$shortness_of_breath %in% c("mild", "severe", "significant")] <- TRUE
+assessment.positive$shortness_of_breath[assessment.positive$shortness_of_breath == "no"] <- FALSE
+assessment.positive$shortness_of_breath[!assessment.positive$shortness_of_breath %in% c("TRUE", "FALSE")] <- NA
+
+assessment.positive$fatigue[assessment.positive$fatigue %in% c("mild", "severe")] <- TRUE
+assessment.positive$fatigue[assessment.positive$fatigue == "no"] <- FALSE
+assessment.positive$fatigue[!assessment.positive$fatigue %in% c("TRUE", "FALSE")] <- NA
+
+#Makes them logical
+assessment.positive[, c(symptoms.list, "shortness_of_breath", "fatigue")] <- apply(assessment.positive[, c(symptoms.list, "shortness_of_breath", "fatigue")], 2, as.logical)
+
+#Generate new variable
+assessment.positive$classic_symptoms <- assessment.positive$fever & assessment.positive$persistent_cough & assessment.positive$shortness_of_breath
+
+#Merges with patients
+assessment.positive <- merge(assessment.positive, patient[, c("id", "gender", "age")], by.x="patient_id", by.y="id", all=F)
+
+symptoms.positive <- lapply(c(symptoms.list, "shortness_of_breath", "fatigue", "classic_symptoms"), function(s)
+{
+	tmp <- na.omit(assessment.positive[, c("gender", "age", s)])
+	tmp[, 3] <- as.logical(tmp[, 3])
+	n <- nrow(tmp)
+	np <- sum(tmp[, 3])
+	npp <- rp(np, n)
+	
+	tmp <- tmp[tmp[, 3], ]
+	pf <- rp(sum(tmp$gender == 0), nrow(tmp))
+	pm <- rp(sum(tmp$gender == 1), nrow(tmp))
+	
+	c(n, np, npp, pf, pm)
+})
+symptoms.positive <- as.data.frame(do.call(rbind, symptoms.positive))
+colnames(symptoms.positive) <- c("N_answered", "N_positive", "Percentage_positive", "Percentage_Female", "Percentage_males")
+rownames(symptoms.positive) <- c(symptoms.list, "shortness_of_breath", "fatigue", "classic_symptoms")
+
+symptoms.positive <- symptoms.positive[order(symptoms.positive$Percentage_positive, decreasing=TRUE), ]
+
+
+# --------------------
 # Self-reported COVID-19
 # --------------------
 
 #Who believes has already had it?
-already_had_covid <- patient[patient$already_had_covid == "t", ]
+already_had_covid <- patient[!is.na(patient$already_had_covid) & patient$already_had_covid == "True", ]
 palready_had_covid <- rp(nrow(already_had_covid), sum(!is.na(patient$already_had_covid)))
 
 #Number/percentage of people testing positive
@@ -193,16 +259,16 @@ names(symptoms) <- symptoms.list
 #health_status is not codified as t/f but as healthy/not_healthy therefore I need to do some tricks before applying 
 #the summary.binary.traits(function)
 tmp <- na.omit(merged[, c("age", "gender", "health_status")])
-tmp$health_status_binary[tmp$health_status == "healthy"] <- "f"
-tmp$health_status_binary[tmp$health_status == "not_healthy"] <- "t"
+tmp$health_status_binary[tmp$health_status == "healthy"] <- "False"
+tmp$health_status_binary[tmp$health_status == "not_healthy"] <- "True"
 
 #Summary stats
 health_status <- summary.binary.traits("health_status_binary", tmp)
 
 #Shortness of breath is categorical
 tmp <- na.omit(merged[, c("age", "gender", "shortness_of_breath")])
-tmp$shortness_of_breath_binary[tmp$shortness_of_breath == "no"] <- "f"
-tmp$shortness_of_breath_binary[tmp$shortness_of_breath != "no"] <- "t"
+tmp$shortness_of_breath_binary[tmp$shortness_of_breath == "no"] <- "False"
+tmp$shortness_of_breath_binary[tmp$shortness_of_breath != "no"] <- "True"
 
 shortness_of_breath <- summary.binary.traits("shortness_of_breath_binary", tmp)
 
@@ -216,8 +282,8 @@ severe.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & asses
 
 #Fatigue is categorical
 tmp <- na.omit(merged[, c("age", "gender", "fatigue")])
-tmp$fatigue_binary[tmp$fatigue == "no"] <- "f"
-tmp$fatigue_binary[tmp$fatigue != "no"] <- "t"
+tmp$fatigue_binary[tmp$fatigue == "no"] <- "False"
+tmp$fatigue_binary[tmp$fatigue != "no"] <- "True"
 
 fatigue <- summary.binary.traits("fatigue_binary", tmp)
 
@@ -238,7 +304,6 @@ temperature <- assessment$temperature_C[!is.na(assessment$temperature_C) & asses
 median.temperature <- round(median(temperature), 1)
 mean.temperature <- round(mean(temperature), 1)
 sd.temperature <- round(sd(temperature), 1)
-
 
 
 
