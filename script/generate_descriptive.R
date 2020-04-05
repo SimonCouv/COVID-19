@@ -11,7 +11,7 @@
 # --------------------
  
 diseases.list <- c("has_lung_disease", "has_kidney_disease", "has_diabetes", "is_smoker", "limited_activity", "has_cancer")
-medication.list <- c("does_chemiotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications", "takes_aspirin", "takes_blood_pressure_medications_sartan")
+medication.list <- c("does_chemotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications_pril", "takes_aspirin", "takes_blood_pressure_medications_sartan", "takes_any_blood_pressure_medications")
 symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell", "headache", "sore_throat")
 
 # --------------------
@@ -146,8 +146,6 @@ healthcare.treat <- sum(!is.na(patient$healthcare_professional) & patient$health
 # Who has taken the test, and what is the outcome? Or still waiting?
 # I am not using the had_covid_test variable here, but the tested_covid_positive one
 
-#FIXME: confirmed.test.IDs <- unique(multiple.measurements$patient_id[multiple.measurements$tested_covid_positive %in% c("yes", "no")])
-
 #This stores ID and result of the test
 tested <- na.omit(unique(assessment[, c("patient_id", "tested_covid_positive")]))
 tested <- merge(tested, patient, by.x="patient_id", by.y="id", all=F)
@@ -279,7 +277,6 @@ mild.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessm
 significant.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "significant")
 severe.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "severe")
 
-
 #Fatigue is categorical
 tmp <- na.omit(merged[, c("age", "gender", "fatigue")])
 tmp$fatigue_binary[tmp$fatigue == "no"] <- "False"
@@ -292,7 +289,6 @@ tot.fatigue <- sum(!is.na(assessment$fatigue))
 having.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue != "no")
 mild.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue == "mild")
 severe.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue == "severe")
-
 
 # --------------------
 # Temperature

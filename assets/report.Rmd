@@ -138,13 +138,13 @@ medications$takes_corticosteroids$brackets
 We asked whether they regularly took blood pressure medications ending in "-pril", such as enalapril, ramipril, perindopril, and these are our stats:
 
 ````{r, echo=FALSE}
-medications$takes_blood_pressure_medications$general
+medications$takes_blood_pressure_medications_pril$general
 ````
 
 and this is the breakdown for age:
 
 ````{r, echo=FALSE}
-medications$takes_blood_pressure_medications$brackets
+medications$takes_blood_pressure_medications_pril$brackets
 ````
 
 
@@ -160,6 +160,20 @@ and this is the breakdown for age:
 
 ````{r, echo=FALSE}
 medications$takes_blood_pressure_medications_sartan$brackets
+````
+
+**Any other blood pressure medication**
+
+We asked whether they regularly took any other blood pressure medications, and these are our stats:
+
+````{r, echo=FALSE}
+medications$takes_any_blood_pressure_medications$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+medications$takes_any_blood_pressure_medications$brackets
 ````
 
 
@@ -184,13 +198,13 @@ medications$takes_aspirin$brackets
 These are our stats for all the users who participated:
 
 ````{r, echo=FALSE}
-medications$does_chemiotherapy$general
+medications$does_chemotherapy$general
 ````
 
 and this is the breakdown for age:
 
 ````{r, echo=FALSE}
-medications$does_chemiotherapy$brackets
+medications$does_chemotherapy$brackets
 ````
 
 
@@ -231,7 +245,7 @@ age.brackets.already_had_covid
 `r nrow(positive)+nrow(negative)` were tested for COVID-19, and `r nrow(positive)` confirmed the disease (`r ppositive`%).
 `r sum(positive$gender==0)` were females (`r pfemale.positive`%).
 
-`r nrow(waiting)` users are still waiting for the results of the test.
+`r nrow(waiting)` users are waiting for the result of the test.
 
 When we look at different age brackets, this is what we see for all users:
 
