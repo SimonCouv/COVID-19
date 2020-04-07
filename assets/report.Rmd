@@ -16,7 +16,7 @@ output:
 
 # Data collected
 
-As of `r day` the COVID-19 radar application got data for `r npatient` users, `r nfemale` of whom were females (`r pfemale`%) and `r nmale` males (`r pmale`%).
+As of `r day` the COVID-19 radar application got data for `r npatient` users in the `r ifelse(where == "GB", "UK", "US")`, `r nfemale` of whom were females (`r pfemale`%) and `r nmale` males (`r pmale`%).
 Their age ranged from `r minage` to `r maxage` year old, with a median of `r medianage` (mean=`r meanage`, SD=`r sdage`). 
 
 When we look at different age brackets, this is what we see:
@@ -259,11 +259,27 @@ and for those testing positive
 age.brackets.positive
 ````
 
-## What symptoms the users who tested positive reported?
+and negative
 
 ````{r, echo=FALSE}
-symptoms.positive
+age.brackets.negative
 ````
+
+
+# What symptoms the users who tested positive reported?
+
+````{r, echo=FALSE}
+symptoms.tested$yes
+````
+
+(Classic symptoms identify all users that reported all of the following: fever, shortness of breath, and persistent cough)
+
+# What symptoms the users who tested negative reported?
+
+````{r, echo=FALSE}
+symptoms.tested$no
+````
+
 
 (Classic symptoms identify all users that reported all of the following: fever, shortness of breath, and persistent cough)
 
@@ -289,7 +305,7 @@ We then asked the users that were not feeling fine which were their symptoms, an
 
 `r length(temperature)` users reported their temperature. The median value was `r median.temperature` (mean=`r mean.temperature`, SD=`r sd.temperature`). `r sum(temperature > 38)` had a temperature higher than 38 C.
 
-`r sum(!is.na(assessment$fever) & assessment$fever == "True")` instead reported of having fever -- albeit not everyone of them reported their temperature:
+`r sum(!is.na(assessment$fever) & assessment$fever)` instead reported of having fever -- albeit not everyone of them reported their temperature:
 
 ````{r, echo=FALSE}
 symptoms$fever$general
@@ -316,20 +332,34 @@ symptoms$persistent_cough$brackets
 
 ## Shortness of breath
 
-Out of `r tot.shortness_of_breath` who answered regarding shortness of breath, `r having.shortness_of_breath` reported experiencing it (`r rp(having.shortness_of_breath, tot.shortness_of_breath)`). For `r mild.shortness_of_breath` it was mild (`r rp(mild.shortness_of_breath, having.shortness_of_breath)`%), for `r significant.shortness_of_breath` it was significant (`r rp(significant.shortness_of_breath, having.shortness_of_breath)`%), and for `r severe.shortness_of_breath` it was severe (`r rp(severe.shortness_of_breath, having.shortness_of_breath)`%).
+Out of `r tot.shortness_of_breath` who answered regarding shortness of breath, `r having.shortness_of_breath` reported experiencing it (`r rp(having.shortness_of_breath, tot.shortness_of_breath)`%). For `r mild.shortness_of_breath` it was mild (`r rp(mild.shortness_of_breath, having.shortness_of_breath)`%), for `r significant.shortness_of_breath` it was significant (`r rp(significant.shortness_of_breath, having.shortness_of_breath)`%), and for `r severe.shortness_of_breath` it was severe (`r rp(severe.shortness_of_breath, having.shortness_of_breath)`%).
 
 Taking into account as those reporting having shortness of breath, this is what we observe:
 
 ````{r, echo=FALSE}
-shortness_of_breath$general
+symptoms$shortness_of_breath_binary$general
 ````
 
 and this is the breakdown for age:
 
 ````{r, echo=FALSE}
-shortness_of_breath$brackets
+symptoms$shortness_of_breath_binary$brackets
 
 ````
+
+## Delirium
+
+
+````{r, echo=FALSE}
+symptoms$delirium$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$delirium$brackets
+````
+
 
 ## Chest pain
 
@@ -409,13 +439,26 @@ Taking into account as those reporting having fatigue, this is what we observe:
 
 
 ````{r, echo=FALSE}
-fatigue$general
+symptoms$fatigue_binary$general
 ````
 
 and this is the breakdown for age:
 
 ````{r, echo=FALSE}
-fatigue$brackets
+symptoms$fatigue_binary$brackets
+````
+
+
+## Muscle pains
+
+````{r, echo=FALSE}
+symptoms$unusual_muscle_pains$general
+````
+
+and this is the breakdown for age:
+
+````{r, echo=FALSE}
+symptoms$unusual_muscle_pains$brackets
 ````
 
 

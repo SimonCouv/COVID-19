@@ -9,7 +9,6 @@ Read more about the app and the research [here](https://twinsuk.ac.uk/our-resear
 ## Depends on
 
 * data.table
-* parallel
 * rmarkdown
 
 
@@ -19,6 +18,15 @@ See `daily_process.R` in the `script` folder.
 
 
 ## Changelog
+
+### 2020-04-06
+
+Enhancements:
+* Only users from either the UK or the US are used
+* Multiple logs in the same day are aggregated
+* Assessments reporting healthy status along with symptoms (or vice versa) are discarded
+* Added new symptoms
+* Minor improvements on code and report
 
 ### 2020-04-05
 
@@ -37,17 +45,22 @@ Enhancements:
 * Assessment includes longitudinal data (one assessment person/day)
 * Stats are only for the day, and do not take into account previous assessments
 
-## Contributors
+## Authors
 
-Data cleaning and demographics:
+Main contributors:
 
 * Dr Julia El-Sayed Moustafa
 * Dr Mario Falchi
 * Dr Maxim Freydin
 * Dr Massimo Mangino
+* Dr Niccolo' Rossi
 * Dr Alessia Visconti
 
-(Contributors are listed in alphabetical order)
+Main developers:
+
+* Dr Alessia Visconti
+
+(Authors are listed in alphabetical order)
 
 ## License
 

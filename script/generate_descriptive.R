@@ -7,97 +7,6 @@
 
 
 # --------------------
-# Global variables
-# --------------------
- 
-diseases.list <- c("has_lung_disease", "has_kidney_disease", "has_diabetes", "is_smoker", "limited_activity", "has_cancer")
-medication.list <- c("does_chemotherapy", "takes_corticosteroids", "takes_immunosuppressants", "takes_blood_pressure_medications_pril", "takes_aspirin", "takes_blood_pressure_medications_sartan", "takes_any_blood_pressure_medications")
-symptoms.list <- c("fever", "persistent_cough", "diarrhoea", "delirium", "skipped_meals", "abdominal_pain", "chest_pain", "hoarse_voice", "loss_of_smell", "headache", "sore_throat")
-
-# --------------------
-# Functions
-# --------------------
-
-rp <- function(a, b, n=1)
-# Evaluate the percentage and round to the nth decimal place
-# 
-# @param a numerator
-# @param b denominator
-# @param n number of decimals (default: 1)
-# @return the percentage of a/b, rounded at the nth decimal place
-# @examples
-# rp(6, 20, 1)
-{
-	round(a/b*100, n)
-}
-
-get.age.brackets <- function(df, limits=rbind(c(16, 19), c(20, 29), c(30, 39), c(40, 49), c(50, 59), c(60, 69), c(70, 79), c(80, 100)))
-# Counts how many individuals are available within each age brackets
-# (including number of males and females, and their percentage within 
-# the total of THAT bracket)
-#
-# @param df the data frame
-# @param limits the lower and upper limit of the age brackets
-# @examples
-# get.age.brackets(patients)
-{
-	age.brackets <- t(apply(limits, 1, function(l)
-	{
-		#Get those in the brackets
-		subset <- df[l[1] <= df$age & df$age <= l[2], ]
-		#Number of poeple, and then of males/females
-		pop <- rp(nrow(subset), nrow(df))
-		f <- rp(sum(subset$gender == 0), nrow(subset))
-		m <- rp(sum(subset$gender == 1), nrow(subset))
-		
-		c(nrow(subset), pop, sum(subset$gender == 0), sum(subset$gender == 1), f, m)
-	}))
-	colnames(age.brackets) <- c("N", "Percentage", "N_females", "N_males", "Percentage_Female", "Percentage_Male")
-	rownames(age.brackets) <- apply(limits, 1, paste, collapse="-")
-	
-	age.brackets
-}
-
-
-summary.binary.traits <- function(trait, df)
-# Given a binary trait (which has value t/f) it counts how many people have 
-# answered yes (t), and their basic demographics (male, females, age brackets)
-# 
-# @param trait the trait to test
-# @param df the dataset with all the answers
-# @return a list
-#			general: general demographics for those with the trait
-#			brackets: summary for age brackets
-# @examples
-# summary.binary.traits("has_lung_disease", patient)
-{
-	a <- na.omit(df[, c("age", "gender", trait)])
-	colnames(a)[3] <- "trait"
-	
-	#People who answered
-	tot <- nrow(a)
-	
-	#People with trait
-	n <- sum(a$trait == "True")
-	p <- rp(n, tot) 
-	
-	#Only people with traits, for the demographic within them
-	a <- a[a$trait == "True", ]
-	
-	#Females males in those with the trait
-	f <- rp(sum(a$gender == 0), nrow(a)) 
-	m <- rp(sum(a$gender == 1), nrow(a)) 
-	
-	r <- c(tot, n, p, f, m)
-	names(r) <- c("N_answered", "N_Positive", "Percentage_positive", "Percentage_Female", "Percentage_Male")
-	
-	brackets <- get.age.brackets(a)
-		
-	list(general=r, brackets=brackets)
-}
-
-
-# --------------------
 # First descriptive
 # --------------------
 
@@ -128,12 +37,11 @@ medianbmi <- round(median(patient$bmi, na.rm=T), 1)
 meanbmi <- round(mean(patient$bmi, na.rm=T), 1)
 sdbmi <- round(sd(patient$bmi, na.rm=T), 1)
 
-#Average numeber of data point logged
+#Average numeber of data point logged (FIXME: bottleneck)
 mean.logs <- round(length(unique(assessment$patient_id))/nrow(assessment), 1)
 number.log <- table(assessment$patient_id)
 unique.log <- sum(number.log == 1)
 max.log <- max(number.log)
-
 
 nhealthcare <- sum(!is.na(patient$healthcare_professional) & patient$healthcare_professional %in% c("yes_does_not_treat", "yes_does_treat"))
 healthcare.treat <- sum(!is.na(patient$healthcare_professional) & patient$healthcare_professional == "yes_does_treat")
@@ -163,55 +71,57 @@ pmale.positive <- rp(sum(positive$gender==1), nrow(positive))
 
 #Number/percentage of people testing positive
 age.brackets.positive <- get.age.brackets(positive)  
+age.brackets.negative <- get.age.brackets(negative)  
 
 # --------------------
-# Looking at those testing positive
+# Looking at those who had the testing
 # --------------------
 
-assessment.positive <- assessment[!is.na(assessment$tested_covid_positive) & assessment$tested_covid_positive == "yes", c("patient_id", symptoms.list, "shortness_of_breath", "fatigue")]
+assessment.tested <- assessment[!is.na(assessment$tested_covid_positive) & assessment$tested_covid_positive %in% c("yes", "no"), c("patient_id", "tested_covid_positive", extended.symptoms.list)]
 
-#Covert symptoms in logical binary values
-assessment.positive[assessment.positive == "True"] <- TRUE
-assessment.positive[assessment.positive == "False"] <- FALSE
+#Gets classing symptoms (if they left an NA, this becomes NA)
+assessment.tested$classic_symptoms <- apply(assessment.tested[, c("fever", "persistent_cough", "shortness_of_breath_binary")], 1, any, na.rm=T)
+assessment.tested$classic_symptoms[is.na(assessment.tested$fever) | is.na(assessment.tested$persistent_cough) | is.na(assessment.tested$shortness_of_breath_binary)] <- NA
 
-#These were categorical
-assessment.positive$shortness_of_breath[assessment.positive$shortness_of_breath %in% c("mild", "severe", "significant")] <- TRUE
-assessment.positive$shortness_of_breath[assessment.positive$shortness_of_breath == "no"] <- FALSE
-assessment.positive$shortness_of_breath[!assessment.positive$shortness_of_breath %in% c("TRUE", "FALSE")] <- NA
+assessment.tested <- merge(assessment.tested, patient[, c("id", "gender", "age")], by.x="patient_id", by.y="id", all=F)
 
-assessment.positive$fatigue[assessment.positive$fatigue %in% c("mild", "severe")] <- TRUE
-assessment.positive$fatigue[assessment.positive$fatigue == "no"] <- FALSE
-assessment.positive$fatigue[!assessment.positive$fatigue %in% c("TRUE", "FALSE")] <- NA
+#Propagates the symptoms across dates
+assessment.tested$day <- NULL
+multiple.assessment <- unique(assessment.tested$patient_id[duplicated(assessment.tested$patient_id)])
+single.assessment <- assessment.tested[!assessment.tested$patient_id %in% multiple.assessment, ]
+multiple.assessment <- assessment.tested[assessment.tested$patient_id %in% multiple.assessment, ]
 
-#Makes them logical
-assessment.positive[, c(symptoms.list, "shortness_of_breath", "fatigue")] <- apply(assessment.positive[, c(symptoms.list, "shortness_of_breath", "fatigue")], 2, as.logical)
-
-#Generate new variable
-assessment.positive$classic_symptoms <- assessment.positive$fever & assessment.positive$persistent_cough & assessment.positive$shortness_of_breath
-
-#Merges with patients
-assessment.positive <- merge(assessment.positive, patient[, c("id", "gender", "age")], by.x="patient_id", by.y="id", all=F)
-
-symptoms.positive <- lapply(c(symptoms.list, "shortness_of_breath", "fatigue", "classic_symptoms"), function(s)
+not.aggregate.cols <- c("patient_id", "gender", "age", "tested_covid_positive")
+multiple.assessment <- mysplit(multiple.assessment, multiple.assessment$patient_id)
+for (j in 1:length(multiple.assessment))
 {
-	tmp <- na.omit(assessment.positive[, c("gender", "age", s)])
-	tmp[, 3] <- as.logical(tmp[, 3])
-	n <- nrow(tmp)
-	np <- sum(tmp[, 3])
-	npp <- rp(np, n)
+	multiple.assessment[[j]] <- aggregate.symptoms(multiple.assessment[[j]], not.aggregate.cols, extended.symptoms.list, extended.symptoms.list)
+}
+multiple.assessment <- myrbind(multiple.assessment)
+
+assessment.tested <- mysplit(assessment.tested, assessment.tested$tested_covid_positive)
+symptoms.tested <- lapply(assessment.tested, function(m)
+{
+	m <- lapply(c(extended.symptoms.list, "classic_symptoms"), function(s)
+	{
+		tmp <- na.omit(m[, c("gender", "age", s)])
+		tmp[, 3] <- as.logical(tmp[, 3])
+		n <- nrow(tmp)
+		np <- sum(tmp[, 3])
+		npp <- rp(np, n)
 	
-	tmp <- tmp[tmp[, 3], ]
-	pf <- rp(sum(tmp$gender == 0), nrow(tmp))
-	pm <- rp(sum(tmp$gender == 1), nrow(tmp))
+		tmp <- tmp[tmp[, 3], ]
+		pf <- rp(sum(tmp$gender == 0), nrow(tmp))
+		pm <- rp(sum(tmp$gender == 1), nrow(tmp))
 	
-	c(n, np, npp, pf, pm)
+		c(n, np, npp, pf, pm)
+	})
+	m <- as.data.frame(do.call(rbind, m))
+	colnames(m) <- c("N_answered", "N_positive", "Percentage_positive", "Percentage_Female", "Percentage_males")
+	rownames(m) <- c(symptoms.list, "shortness_of_breath", "fatigue", "classic_symptoms")
+
+	m[order(m$Percentage_positive, decreasing=TRUE), ]
 })
-symptoms.positive <- as.data.frame(do.call(rbind, symptoms.positive))
-colnames(symptoms.positive) <- c("N_answered", "N_positive", "Percentage_positive", "Percentage_Female", "Percentage_males")
-rownames(symptoms.positive) <- c(symptoms.list, "shortness_of_breath", "fatigue", "classic_symptoms")
-
-symptoms.positive <- symptoms.positive[order(symptoms.positive$Percentage_positive, decreasing=TRUE), ]
-
 
 # --------------------
 # Self-reported COVID-19
@@ -248,27 +158,21 @@ assessment <- assessment[assessment$day == day, ]
 
 # Symptoms are in the assessment df, but age and sex in the patient one 
 # Categorical variables are subsetted independently
-merged <- merge(assessment[, c("patient_id", symptoms.list, "health_status", "shortness_of_breath", "fatigue")], patient[, c("id", "age", "gender")], by.x="patient_id", by.y="id", all=F)
+merged <- merge(assessment[, c("patient_id", extended.symptoms.list, "health_status", "shortness_of_breath", "fatigue")], patient[, c("id", "age", "gender")], by.x="patient_id", by.y="id", all=F)
 
 #symptoms are only summarised for the not healthy 
-symptoms <- lapply(symptoms.list, summary.binary.traits, df=merged[merged$health_status == "not_healthy", ])
-names(symptoms) <- symptoms.list
+symptoms <- lapply(extended.symptoms.list, summary.binary.traits, df=merged[merged$health_status == "not_healthy", ])
+names(symptoms) <- extended.symptoms.list
 
 #health_status is not codified as t/f but as healthy/not_healthy therefore I need to do some tricks before applying 
 #the summary.binary.traits(function)
 tmp <- na.omit(merged[, c("age", "gender", "health_status")])
 tmp$health_status_binary[tmp$health_status == "healthy"] <- "False"
 tmp$health_status_binary[tmp$health_status == "not_healthy"] <- "True"
+tmp$health_status_binary <- as.logical(tmp$health_status_binary)
 
 #Summary stats
 health_status <- summary.binary.traits("health_status_binary", tmp)
-
-#Shortness of breath is categorical
-tmp <- na.omit(merged[, c("age", "gender", "shortness_of_breath")])
-tmp$shortness_of_breath_binary[tmp$shortness_of_breath == "no"] <- "False"
-tmp$shortness_of_breath_binary[tmp$shortness_of_breath != "no"] <- "True"
-
-shortness_of_breath <- summary.binary.traits("shortness_of_breath_binary", tmp)
 
 #Extra stats
 tot.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath))
@@ -277,14 +181,6 @@ mild.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessm
 significant.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "significant")
 severe.shortness_of_breath <- sum(!is.na(assessment$shortness_of_breath) & assessment$shortness_of_breath == "severe")
 
-#Fatigue is categorical
-tmp <- na.omit(merged[, c("age", "gender", "fatigue")])
-tmp$fatigue_binary[tmp$fatigue == "no"] <- "False"
-tmp$fatigue_binary[tmp$fatigue != "no"] <- "True"
-
-fatigue <- summary.binary.traits("fatigue_binary", tmp)
-
-#Extra stats
 tot.fatigue <- sum(!is.na(assessment$fatigue))
 having.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue != "no")
 mild.fatigue <- sum(!is.na(assessment$fatigue) & assessment$fatigue == "mild")
