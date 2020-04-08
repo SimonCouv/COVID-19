@@ -19,6 +19,11 @@ See `daily_process.R` in the `script` folder.
 
 ## Changelog
 
+### 2020-04-08
+
+Enhancements:
+* Data are cleaned in an incremental fashion
+
 ### 2020-04-06
 
 Enhancements:

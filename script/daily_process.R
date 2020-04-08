@@ -4,7 +4,7 @@
 
 # data_cleaning.R timestamp data_directory document_directory
 # Example: 
-#		Rscript daily_process.R 20200326 ../data/ GB
+#		Rscript daily_process.R 20200329 ../data/ GB 2020-03-28
 
 # --------------------
 # Global variables
@@ -25,13 +25,41 @@ sdir <- getwd()
 source("functions.R")
 
 args = commandArgs(trailingOnly=TRUE)
+
+if (length(args) < 4)
+{
+	print("Usage:")
+	print("Rscript daily_process.R timestamp datadir where day2process")
+	print("")
+	print("Note: the results for the day before day2process should be available")
+	print("in the datadir folder")
+	print("")
+	print("Params")
+	print("timestamp:   timestamp of the files to analyse")
+	print("datadir:     directory where the file to analyse are located")
+	print("where:       whether to process British (GB) or American (US) users")
+	print("day2process: which day will be process in this run (format: YYYY-mm-dd)")
+	print("")
+	print("Returns")
+	print("- a R binary objects with one data frame with information on the users")
+	print("  who gave an assessment that day and an aggregate of their daily")
+	print("  assessment")
+	print("- a daily report")
+	stop("")
+}
+
 timestamp <- args[1]
 wdir <- args[2]
 where <- args[3]
+day2process <- as.POSIXct(args[4], format = '%Y-%m-%d') 
 
 if (!where %in% c("GB", "US")) { stop("Please specify if you want GB or US data")}
 
-day <- paste(substr(timestamp, 0, 4), substr(timestamp, 5, 6), substr(timestamp, 7,8), sep="-")
+dump.day <- paste(substr(timestamp, 0, 4), substr(timestamp, 5, 6), substr(timestamp, 7,8), sep="-")
+
+#If this is the first day, there is no day before
+previous.day <- if (as.character(day2process) == "2020-03-21") NA else substr(as.character(day2process-1), 0, 10) 
+
 
 # --------------------
 # Data cleaning
@@ -39,11 +67,6 @@ day <- paste(substr(timestamp, 0, 4), substr(timestamp, 5, 6), substr(timestamp,
 
 setwd(sdir)
 source("data_cleaning.R")
-
-print("Data cleaned")
-print("Data available in:")
-print(paste0(wdir, "/patient_and_assessments_cleaned_", timestamp, ".RData"))
-
 
 # --------------------
 # Generate descriptive

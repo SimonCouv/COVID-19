@@ -4,7 +4,7 @@
 
 # This is a collection of functions. It is loaded by daily_process.R.
 
-aggregate.symptoms <- function(m, not.aggregate, aggregate, binary.cols=c(extended.symptoms.list, "always_used_shortage", "have_used_PPE", "never_used_shortage", "sometimes_used_shortage", "treated_patients_with_covid"))
+aggregate.symptoms <- function(m, not.aggregate.cols, aggregate.cols, binary.cols)
 # When multiple assessments are available, it summarises them in a single one
 #
 # @param m the data frame
@@ -12,10 +12,10 @@ aggregate.symptoms <- function(m, not.aggregate, aggregate, binary.cols=c(extend
 # @param aggregated the columns that should be aggregated
 # @param binary.cols the column that includes logical values
 # @return a data frame where multiple assessment are aggregated
-{
+{	
 	#I will tag the measurements with the latest assessment (arbitrary, I know)
-	a <- m[nrow(m), not.aggregate]
-	b <- unique(m[, aggregate])
+	a <- m[nrow(m), not.aggregate.cols]
+	b <- unique(m[, aggregate.cols])
 
 	#There are multiple measurements that are the NOT same
 	n <- nrow(b)
@@ -24,40 +24,78 @@ aggregate.symptoms <- function(m, not.aggregate, aggregate, binary.cols=c(extend
 		#I summarise them. For the symptoms I get if there is at least one True during the day
 		for (symptom in binary.cols)
 		{
-			b[, symptom] <- ifelse(sum(is.na(b[, symptom]) == n), NA, any(b[, symptom], na.rm=TRUE) )
+			b[, symptom] <- ifelse(sum(is.na(b[, symptom])) == n, NA, any(b[, symptom], na.rm=TRUE) )
 		}
 		
 		#Other symptoms, location, and level of isolation are pasted, if present.
 		#This if statement is true only during the data cleaning, but when this function is used to 
 		#aggregate the symptoms in the descriptive, those are not available
 		if ("health_status" %in% colnames(m))
-		{
+		{	
+			#Aggregates test results
+			b$had_covid_test <- if("True" %in% b$had_covid_test) {
+				"True"
+			} else if ("False" %in% b$had_covid_test) {
+				"False"
+			} else {
+				NA
+			}
+			
+			#Schrödinger's patients
+			if ("yes" %in% b$tested_covid_positive & "no" %in% b$tested_covid_positive)
+			{
+				a$patient_id <- NA
+			}
+			
+			b$tested_covid_positive <- if ("yes" %in% b$tested_covid_positive) {
+				"yes"
+			} else if ("no" %in% b$tested_covid_positive) {
+				"no"
+			} else if ("waiting" %in% b$tested_covid_positive) {
+				"waiting"
+			} else {
+				NA
+			}
+					
 			#For health_status if there is at least one not_healthy
 			b$health_status <- ifelse("not_healthy" %in% b$health_status, "not_healthy", "healthy")
 			
 			#Gets the worse one
-			b$shortness_of_breath <- ifelse("severe" %in% b$shortness_of_breath, "severe", b$shortness_of_breath)
-			b$shortness_of_breath <- ifelse("significant" %in% b$shortness_of_breath, "significant", b$shortness_of_breath)
-			b$shortness_of_breath <- ifelse("mild" %in% b$shortness_of_breath, "mild", b$shortness_of_breath)
-			b$shortness_of_breath <- ifelse("no" %in% b$shortness_of_breath, "no", b$shortness_of_breath)
+			b$shortness_of_breath <- if ("severe" %in% b$shortness_of_breath) {
+				"severe"
+			} else if ("significant" %in% b$shortness_of_breath) {
+				"significant"
+			} else if ("mild" %in% b$shortness_of_breath) {
+				"mild"
+			} else if ("no" %in% b$shortness_of_breath) {
+				"no"
+			} else {
+				NA
+			}
 			
-			b$fatigue <- ifelse("severe" %in% b$fatigue, "severe", b$fatigue)
-			b$fatigue <- ifelse("mild" %in% b$fatigue, "mild", b$fatigue)
-			b$fatigue <- ifelse("no" %in% b$fatigue, "no", b$fatigue)
+			b$fatigue <- if ("severe" %in% b$fatigue) {
+				"severe"
+			} else if ("mild" %in% b$fatigue) {
+				"mild"
+			} else if ("no" %in% b$fatigue) {
+				"no"
+			} else {
+				NA
+			}
 			
 			#FIXME: also location, other symptoms, and level of isolation should be cleaned 
-			#(as well as the logical values such as shortage)
+			#(as well as the logical values such as shortage, etc)
 			b$location <- paste(unique(b$location[!is.na(b$location)]), collapse="; ")
 			b$other_symptoms <- paste(unique(b$other_symptoms[!is.na(b$other_symptoms)]), collapse="; ")
 			b$level_of_isolation <- paste(unique(b$level_of_isolation[!is.na(b$level_of_isolation)]), collapse="; ")
 			b$treatment <- paste(unique(b$treatment[!is.na(b$treatment)]), collapse="; ")
-			b$temperature_C <- ifelse(sum(is.na(b$temperature_C) == n), NA, mean(b$temperature_C, na.rm=TRUE))  
+			b$temperature_C <- ifelse(sum(is.na(b$temperature_C)) == n, NA, mean(b$temperature_C, na.rm=TRUE))  
 		}
 		
 		b <- unique(b)
 	}
 
-	c(a, b)
+	cbind(a, b)
 }
 
 get.age.brackets <- function(df, limits=rbind(c(16, 19), c(20, 29), c(30, 39), c(40, 49), c(50, 59), c(60, 69), c(70, 79), c(80, 100)))
@@ -105,6 +143,40 @@ myrbind <- function(mylist)
 # @return a data frame
 {
  data.frame(data.table::rbindlist(mylist))
+}
+
+propagate.test <- function(m, tested.answers=c("yes", "no", "waiting"))
+{
+	#Removes people who said that they were both positive and negative
+	if ("yes" %in% m$tested_covid_positive & "no" %in% m$tested_covid_positive) 
+	{ 
+		m$patient_id <- NA
+	}
+	
+	m <- m[order(m$updated_at, decreasing=FALSE), ]
+	
+	#If the patient is only waiting, there is no answer to propagate
+	#FIXME: There is no propagation of the "waiting", which should stop once I get an answer
+	if (sum(m$tested_covid_positive %in% c("yes", "no")) != 0)
+	{
+		index <- min(which(m$tested_covid_positive %in% c("yes", "no")))
+	
+		#I propagate only if it not the last line
+		if (index != nrow(m))
+		{
+			m$tested_covid_positive[(index+1):nrow(m)] <- m$tested_covid_positive[index]
+		}
+	}
+		
+	#I also propagate the fact that they had a test (starting to propagate from they were
+	#either waiting or had a reply, whatever happened earlier)
+	if ("True" %in% m$had_covid_test)
+	{
+		index <- min(which(m$tested_covid_positive %in% tested.answers))
+	 	m$had_covid_test[index:nrow(m)] <- "True"
+	}
+	
+	as.data.frame(m)
 }
 
 rp <- function(a, b, n=1)
