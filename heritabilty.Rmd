@@ -1,0 +1,444 @@
+---
+title: "COVID-radar heritability"
+author: 
+  - name: "Simon Couvreur"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+    toc_depth: 5
+    code_folding: hide
+    number_sections: true
+    self_contained: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+
+library(here)
+library(tidyverse)
+library(assertthat)
+library(lubridate)
+
+```
+
+
+
+Load data Maxim Freidin
+
+```{r}
+
+load(here::here("input_data/h2_data_max_freidin_20200408.Robj"), verbose = T)
+# View(dsetX)
+dat <- dsetX
+rm(dsetX)
+names(dat) <- tolower(names(dat))
+dat <- rename(dat, family_no = fid, study_no = twinsn)
+
+load(here::here("input_data/h2_data_max_freidin_20200409.Robj"), verbose = T)
+dat2 <- dsetZ
+rm(dsetZ)
+names(dat2) <- tolower(names(dat2))
+dat2 <- rename(dat2, family_no = fid, study_no = twinsn)
+
+
+
+twins_anno <- fread(here::here("input_data/TwinDetails_110119.csv")) %>% 
+  setnames(tolower(names(.)))
+
+# restrict to twin pairs with data on both co-twins
+datp <- dat %>% group_by(family_no) %>% 
+  # mutate(np = n()) %>% 
+  dplyr::filter( n_distinct(study_no) == 2) %>% 
+  ungroup()
+datp2 <- dat2 %>% group_by(family_no) %>% 
+  # mutate(np = n()) %>% 
+  dplyr::filter( n_distinct(study_no) == 2) %>% 
+  ungroup()
+
+```
+
+# Explore data
+
+Only 15 have PCR
+
+Not all twins in (dated) anno file
+
+```{r}
+
+count(dat, tested_covid_positive)
+
+tmp <- anti_join(datp, twins_anno)
+dim(datp)
+dim(tmp)
+
+```
+
+Does reported age, sex, zygosity match with phenobase?
+-> no discrepancies
+
+```{r}
+
+matched <- datp %>% 
+  left_join(twins_anno, by=c("study_no", "family_no"))
+
+
+names(matched) %>% str_subset("year")
+names(matched) %>% str_subset("sex")
+names(matched) %>% str_subset("zygosity")
+
+count(matched, actual_zygosity.x, actual_zygosity.y)
+count(matched, sex.x, sex.y)
+plot(matched$year_birth.x, matched$year_birth.y)
+matched %>% 
+  dplyr::filter(year_birth.x != year_birth.y)
+
+```
+
+
+classic symptoms
+
+```{r}
+
+count(dat, classic_symptoms)
+count(dat, classic_symptoms, persistent_cough, fever)
+
+```
+
+
+
+
+2 duplicates found, for study_no 57851 and 83621.
+
+BUT, these are non part of twin pairs with data available (were included
+because multiple records for same family_no, but was due to duplication of records for same individual)
+
+```{r}
+
+# count(datp, study_no) %>% dplyr::filter(n>1)
+# 
+# datp %>% group_by(study_no) %>% 
+#   dplyr::filter( n() >1) %>% 
+#   ungroup() %>% View()
+# 
+# datp %>% group_by(study_no) %>% 
+#   dplyr::filter( n() >1) %>% 
+#   group_by(study_no) %>% 
+#   mutate(record_no = 1:n()) %>% 
+#   gather(key, value, -c("study_no", "record_no")) %>% 
+#   group_by(study_no, key) %>% 
+#   dplyr::filter(n_distinct(value) != 1) %>% 
+#   group_by(study_no, record_no) %>%
+#   mutate(value = replace_na(value, "NA")) %>% 
+#   spread(key, value) %>% 
+#   write_csv("data/dups_20200408.csv", na="")
+# 
+# #select most recent
+# datp_nd <- datp %>% 
+#   group_by(study_no) %>%
+#   mutate(updated_at_date = as_date(updated_at)) %>% 
+#   dplyr::filter(updated_at_date == max(updated_at_date)) %>% 
+#   ungroup()
+
+```
+
+number of twin pairs: 728
+
+```{r}
+count(datp, family_no) %>% 
+  count(n)
+
+datp %>% 
+  group_by(family_no) %>% 
+  dplyr::filter(n() == 1)
+
+count(datp, actual_zygosity) %>% 
+  mutate(n_pairs = n/2)
+
+count(datp, sex) %>% 
+  mutate(prop = n/sum(n))
+
+hist(datp$age)
+
+```
+# SOLAR
+
+SOLAR input files
+
+```{r}
+
+dummy_parents <- datp %>% 
+  distinct(family_no) %>% 
+  mutate(
+    father_dummy = paste0("fa_dummy_", 1:n()),
+    mother_dummy = paste0("mo_dummy_", 1:n())
+  )
+
+tmp <- datp %>% 
+  distinct(study_no, sex, family_no, actual_zygosity, age) %>%
+  left_join(dummy_parents, by="family_no")
+
+mz_cnt <- 1
+for (family_no in unique(tmp$family_no)){
+  # browser()
+  fam <- tmp[tmp$family_no == family_no,]
+  
+  # sanity check
+  assert_that(n_distinct(fam$actual_zygosity)==1)
+  
+  if (unique(fam$actual_zygosity) == "DZ"){
+    tmp[tmp$family_no == family_no, "clonality_id"] <- ""
+  } else if (unique(fam$actual_zygosity) == "MZ"){
+    tmp[tmp$family_no == family_no, "clonality_id"] <- paste0("mz", mz_cnt)
+    mz_cnt <- mz_cnt + 1
+  }
+}
+
+pedigree <- tmp %>% 
+  dplyr::select(
+    id = study_no,
+    fa = father_dummy,
+    mo = mother_dummy,
+    sex,
+    mztwin=clonality_id,
+    hhid = family_no
+  ) %>% 
+  mutate_all(as.character) %>% 
+  bind_rows(tibble(
+    id = unique(c(.$fa, .$mo)),
+    fa = "0",
+    mo = "0",
+    sex = c(rep("1", n_distinct(.$fa)),rep("2", n_distinct(.$mo))),
+    mztwin = "",
+    hhid = ""
+  ))
+
+write_csv(pedigree, "data/solar_pedigree.ped")
+
+pheno <- datp2 %>% 
+  dplyr::select(
+    id = study_no,
+    age,
+    sex,
+    bmi,
+    persistent_cough,
+    fatigue,
+    delirium,
+    shortness_of_breath,
+    fever,
+    diarrhoea,
+    abdominal_pain,
+    chest_pain,
+    hoarse_voice,
+    skipped_meals,
+    loss_of_smell,
+    predcovid
+  )
+
+
+pheno %>% 
+  dplyr::select(-one_of("id", "sex")) %>% 
+  summarise_all(mean) %>% t()
+
+```
+
+## Run SOLAR
+
+age+sex
+
+```{r}
+
+cat("Starting solar:", as.character(Sys.time()), "\n")
+
+
+
+# some settings to get SOLAR to work
+Sys.setenv(LC_ALL = "C")
+fs::link_create("code/solar_radar.tcl", "solar_radar.tcl")
+
+res <- list()
+for (ph in names(pheno)[5:15]){
+  
+  cat(ph, "\n")
+  
+  # prepare SOLAR inputs
+  pheno_tmp <- pheno[, c("id", "age", "sex", ph)] 
+  names(pheno_tmp)[4] <- "pheno"
+  write_csv(pheno_tmp, "data/pheno_tmp.phen")
+  
+  # run solar
+  res[[ph]] <- capture.output(system("solar851 run_polygenic", intern = T))
+  
+  # archive result files
+  unlink(file.path("results/solar", ph))
+  fs::file_move("results/solar/tmp_output", file.path("results/solar", ph))
+  
+}
+
+fs::file_delete("solar_radar.tcl")
+
+cat("Completed solar:", as.character(Sys.time()), "\n")
+
+
+```
+
+bmi+age+sex
+
+```{r}
+
+cat("Starting solar:", as.character(Sys.time()), "\n")
+
+
+
+# some settings to get SOLAR to work
+Sys.setenv(LC_ALL = "C")
+fs::link_create("code/solar_radar.tcl", "solar_radar.tcl")
+
+res <- list()
+for (ph in names(pheno)[5:16]){
+  
+  cat(ph, "\n")
+  
+  # prepare SOLAR inputs
+  pheno_tmp <- pheno[, c("id", "age", "sex", "bmi", ph)]
+  names(pheno_tmp)[5] <- "pheno"
+  write_csv(pheno_tmp, "data/pheno_tmp.phen")
+  
+  # run solar
+  res[[ph]] <- capture.output(system("solar851 run_polygenic_bmi", intern = T))
+  
+  # archive result files
+  unlink(file.path("results/solar", ph))
+  fs::file_move("results/solar/tmp_output", file.path("results/solar", paste0(ph, "_bmi")))
+  
+}
+
+fs::file_delete("solar_radar.tcl")
+
+cat("Completed solar:", as.character(Sys.time()), "\n")
+
+
+```
+
+
+Parse output
+
+```{r}
+
+parsed <- list()
+for (ph in names(res)){
+  print(ph)
+  fl_regex <- "([\\d\\.\\+\\-e]*)"
+  tmp <- list()
+  for (vc in c("H2r", "C2")){
+    
+     if (vc== "C2" & any(str_detect(string = str_trim(res[[ph]]), 
+                   pattern = "Since it was zero, the C2 parameter has been deleted"))){
+       vc_stat <- c(0, NA)
+     } else {
+       vc_stat <- str_match(
+         string = str_trim(res[[ph]]), 
+         pattern = glue("{vc}\\s+is\\s+{fl_regex}\\s+p = {fl_regex}")
+       )[,2:3] %>%
+         na.omit() %>% 
+         as.numeric()
+     }
+    
+    # browser()
+    names(vc_stat) <- c("est", "p")
+    tmp[[vc]] <- enframe(vc_stat)
+  }
+  parsed[[ph]] <- bind_rows(tmp, .id="VC")
+}
+
+
+
+res_solar <- bind_rows(parsed, .id="phenotype")
+write_csv(res_solar, "data/res_heritability_solar.csv")
+
+```
+
+Parse output with bmi
+
+```{r}
+fl_regex <- "(^[\\d][\\d\\.\\+\\-E]+)"
+
+parsed <- list()
+for (ph in names(res)){
+  print(ph)
+  
+  fn <- file.path("results/solar", paste0(ph, "_bmi"), "housepoly.out")
+  poly_out <- readLines(fn, n=-1)
+  start_line <- str_which(poly_out, "Model Parameter Optimizations")
+  end_line <- str_which(poly_out, "Using SOLAR Discrete and Mixed Trait Modeling")
+  summ <- poly_out[start_line:end_line]
+  
+  tmp <- list()
+  for (vc in c("e2", "c2", "h2r")){
+    
+    vc_line <- str_which(str_trim(summ), paste0("^", vc))
+    vc_stat <- str_split(str_squish(summ[vc_line]), " ") %>% unlist() %>% str_subset(fl_regex)
+    if (length(vc_stat)==1) vc_stat <- c(vc_stat, NA)
+
+    # browser()
+    names(vc_stat) <- c("est", "sd")
+    tmp[[vc]] <- enframe(vc_stat)
+  }
+  parsed[[ph]] <- bind_rows(tmp, .id="VC")
+}
+
+
+
+res_solar <- bind_rows(parsed, .id="phenotype")
+write_csv(res_solar, "data/res_heritability_solar.csv")
+
+```
+
+# explore results
+
+
+```{r}
+
+res_solar %>% 
+  spread(name, value) %>% 
+  write_csv("results/solar/res_heritability_solar.csv")
+
+res_solar %>% 
+  dplyr::filter(name=="est") %>% 
+  spread(VC, value) %>% 
+  mutate(E=1-C2-H2r,
+         phenotype = fct_reorder(phenotype, H2r)) %>% 
+  dplyr::select(-name) %>% 
+  gather(VC, prop, -phenotype) %>% 
+  mutate(VC = factor(VC, levels = c("H2r", "C2", "E"))) %>% 
+  ggplot(aes(x=phenotype, y=prop, fill=VC))+
+  geom_bar(position = "stack", stat="identity")+
+  coord_flip()+
+  ylab("variance proportion")
+
+```
+
+with bmi
+
+```{r}
+
+res_bmi <- res_solar %>% 
+  spread(name, value) %>% 
+  mutate_at(vars(est, sd), as.numeric) %>% 
+  mutate(
+    lower = est - 1.96 * sd,
+    upper = est + 1.96 * sd,
+  ) %>% 
+  dplyr::select(-sd) %>% 
+  pivot_wider(names_from = c("VC"), values_from = c("est", "lower", "upper")) %>% 
+  setNames(nm = sub("(.*)_(.*)", "\\2_\\1", names(.))) %>% 
+  select(phenotype, order(colnames(.)))
+
+write_csv(res_bmi, "results/solar/res_heritability_solar_bmi.csv")
+  
+  
+
+```
+
