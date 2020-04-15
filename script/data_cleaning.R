@@ -8,19 +8,6 @@
 # --------------------
 # Valid ranges
 # --------------------
-
-MINAGE <- 16
-MAXAGE <- 90
-
-MINHEIGHT <- 110
-MAXHEIGHT <- 220
-
-MINWEIGHT <- 40
-MAXWEIGHT <- 200
-
-MINBMI <- 15
-MAXBMI <- 55
-
 MINTEMPERATURE <- 35
 MAXTEMPERATURE <- 42
 
@@ -32,8 +19,17 @@ setwd(wdir)
 
 print("Loading data")
 
-patient <- read.csv(paste0("patients_export_geocodes_", timestamp, ".csv"), na.strings = "")
-assessment <- read.csv(paste0("assessments_export_", timestamp, ".csv"), na.strings = "")
+patfile <- paste0("patients_export_geocodes_", timestamp, ".csv")
+assessfile <- paste0("assessments_export_", timestamp, ".csv")
+twins_patfile <- paste0("twins_", patfile)
+twins_assessfile <- paste0("twins_", assessfile)
+
+# bash operations to retain only twins
+print("Subset to TwinsUK participants only")
+system(paste(file.path(sdir, "extract_twins.bash"), timestamp))
+
+patient <- read.csv(twins_patfile, na.strings = "")
+assessment <- read.csv(twins_assessfile, na.strings = "")
 
 #Old dump that requires imperial to metric conversion -- this is done here to avoid
 #wasting time with all the other process
@@ -73,36 +69,7 @@ if (nrow(assessment) == 0)
 #Only patients for that day
 patient <- patient[patient$id %in% assessment$patient_id, ]
 
-# --------------------
-# Get ages
-# --------------------
-
-patient$age <- 2020-as.numeric(as.character(patient$year_of_birth))
-
-#Filters by age
-patient <- patient[!is.na(patient$age) & MINAGE <= patient$age & patient$age <= MAXAGE, ]
-
-# --------------------
-# Checks height, weight, and BMI
-# --------------------
-
-#This is for systems that read factors...
-patient$height_cm <- as.numeric(as.character(patient$height_cm))
-patient$weight_kg <- as.numeric(as.character(patient$weight_kg))
-patient$bmi <- as.numeric(as.character(patient$bmi))
-
-#Filters by height, weight, and BMI
-patient <- patient[!(is.na(patient$height_cm) | is.na(patient$weight_kg) | is.na(patient$bmi) | patient$height_cm < MINHEIGHT | patient$height_cm > MAXHEIGHT | patient$weight_kg < MINWEIGHT | patient$weight_kg > MAXWEIGHT | patient$bmi < MINBMI | patient$bmi > MAXBMI), ]
-
 print("Patient data cleaned")
-
-# --------------------
-# Selects the daily assessment data
-# --------------------
-
-#Only people who were reliable
-assessment <- assessment[assessment$patient_id %in% patient$id, ]
-
 # --------------------
 # Convert temperature in metric system and filters
 # --------------------
@@ -142,8 +109,7 @@ assessment$shortness_of_breath_binary[!is.na(assessment$shortness_of_breath_bina
 
 #Fields changed in the different dumps
 col.list <- intersect(c(extended.symptoms.list, "always_used_shortage", "have_used_PPE", "never_used_shortage", "sometimes_used_shortage", "treated_patients_with_covid"), colnames(assessment))
-for (symptom in col.list)
-{
+for (symptom in col.list){
 	assessment[, symptom] <- as.logical(assessment[, symptom])
 }
 
@@ -175,9 +141,9 @@ data.table::setnames(assessment, colnames(assessment)[which(colnames(assessment)
 assessment <- as.data.frame(assessment[order(patient_id, updated_at, decreasing=TRUE), ])	
 
 #I will need to propagate only those with multiple assessments
-multiple.assessment <- unique(assessment$patient_id[duplicated(assessment$patient_id)])
-single.assessment <- assessment[!assessment$patient_id %in% multiple.assessment, ]
-multiple.assessment <- assessment[assessment$patient_id %in% multiple.assessment, ]
+pats.w.multiple.assessment <- unique(assessment$patient_id[duplicated(assessment$patient_id)])
+single.assessment <- assessment[!assessment$patient_id %in% pats.w.multiple.assessment, ]
+multiple.assessment <- assessment[assessment$patient_id %in% pats.w.multiple.assessment, ]
 
 #In the unfortunate case that in that day everyone logged only once
 if (nrow(multiple.assessment) > 1)
@@ -192,12 +158,14 @@ if (nrow(multiple.assessment) > 1)
 	{
 		multiple.assessment[[i]] <- aggregate.symptoms(multiple.assessment[[i]], not.aggregate.cols, aggregate.cols, binary.cols)
 	}
-}
+  
+  assessment <- myrbind(c(multiple.assessment, list(single.assessment)))
+} else
+  assessment <- single.assessment
 
-assessment <- myrbind(c(multiple.assessment, list(single.assessment)))
 rm(multiple.assessment, single.assessment)
 
-#The propagation checks also for Schrödinger's patient that were both positive and negative to the test,
+#The aggregation checks also for Schrödinger's patient that were both positive and negative to the test (within the same day..), 
 #and tags them for removal
 assessment <- assessment[!is.na(assessment$patient_id), ]
 
@@ -216,7 +184,7 @@ if (!is.na(previous.day))
 	a1 <- assessment
 	p1 <- patient
 	
-	load(paste0(wdir, "/patient_and_assessments_cleaned_", previous.day, ".RData"))
+	load(paste0(wdir, "/twins_patient_and_assessments_cleaned_", previous.day, ".RData"))
 	
 	a <- assessment
 	p <- patient
@@ -226,21 +194,34 @@ if (!is.na(previous.day))
 	rm(a1, p1)
 	
 	#I will work only with patient that have logged their data also the day before
-	new.assessment <- assessment[!assessment$patient_id %in% a$patient_id, ]
-	old.assessment <- assessment[assessment$patient_id %in% a$patient_id, ]
-    a <- a[a$patient_id %in% old.assessment$patient_id, ]
+	#new data, new pat
+        newpat.assessment <- assessment[!assessment$patient_id %in% a$patient_id, ]
+	#new data, old pat
+        oldpat.assessment <- assessment[assessment$patient_id %in% a$patient_id, ]
+
+        # when processing the little amount of data collected on the same day of the timestamp, before the data
+        # was locked (early in the morning), there can be no returning twins        
+        if (nrow(oldpat.assessment) >0){
+          
+          #old data, old pat
+          a <- a[a$patient_id %in% oldpat.assessment$patient_id, ]
+	  #all data, old pat
+	  oldpat.assessment <- rbind(a, oldpat.assessment)
 	
-	old.assessment <- rbind(a, old.assessment)
-	old.assessment <- mysplit(old.assessment, old.assessment$patient_id)
-	for (i in 1:length(old.assessment))
-	{
-		old.assessment[[i]] <- propagate.test(old.assessment[[i]])
+          # list with item per patient
+          oldpat.assessment <- mysplit(oldpat.assessment, oldpat.assessment$patient_id)
+	  for (i in 1:length(oldpat.assessment))
+	  {  
+		oldpat.assessment[[i]] <- propagate.test(oldpat.assessment[[i]])
 		#I remove the old values
-		old.assessment[[i]] <- old.assessment[[i]][old.assessment[[1]]$day == day2process, ]
-	}
-	
-	assessment <- myrbind(c(old.assessment, list(new.assessment)))
-	rm(old.assessment, new.assessment, p, a)
+		oldpat.assessment[[i]] <- oldpat.assessment[[i]][oldpat.assessment[[i]]$day == day2process, ]
+	  }  
+
+	  assessment <- myrbind(c(oldpat.assessment, list(newpat.assessment)))
+
+        }
+
+	rm(oldpat.assessment, newpat.assessment, p, a)
 	
 	#Schrödinger's patients
 	assessment <- assessment[!is.na(assessment$patient_id), ]
@@ -260,8 +241,8 @@ patient <- patient[patient$id %in% assessment$patient_id, ]
 # --------------------
 
 print("Saving data")
-save(patient, assessment, file=paste0(wdir, "/patient_and_assessments_cleaned_", day2process, ".RData"))
+save(patient, assessment, file=paste0(wdir, "/twins_patient_and_assessments_cleaned_", day2process, ".RData"))
 
 print("Data cleaned")
 print("Data available in:")
-print(paste0(wdir, "/patient_and_assessments_cleaned_", day2process, ".RData"))
+print(paste0(wdir, "/twins_patient_and_assessments_cleaned_", day2process, ".RData"))

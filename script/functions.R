@@ -35,7 +35,7 @@ aggregate.symptoms <- function(m, not.aggregate.cols, aggregate.cols, binary.col
 			#Aggregates test results
 			b$had_covid_test <- if("True" %in% b$had_covid_test) {
 				"True"
-			} else if ("False" %in% b$had_covid_test) {
+		} else if ("False" %in% b$had_covid_test) {
 				"False"
 			} else {
 				NA
@@ -90,6 +90,7 @@ aggregate.symptoms <- function(m, not.aggregate.cols, aggregate.cols, binary.col
 			b$level_of_isolation <- paste(unique(b$level_of_isolation[!is.na(b$level_of_isolation)]), collapse="; ")
 			b$treatment <- paste(unique(b$treatment[!is.na(b$treatment)]), collapse="; ")
 			b$temperature_C <- ifelse(sum(is.na(b$temperature_C)) == n, NA, mean(b$temperature_C, na.rm=TRUE))  
+                        b$version <- paste(unique(b$version[!is.na(b$version)]), collapse="; ")
 		}
 		
 		b <- unique(b)

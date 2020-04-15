@@ -48,6 +48,12 @@ if (length(args) < 4)
 	stop("")
 }
 
+## debug
+# timestamp <- '20200415050002'
+#wdir <- '/scratch/users/k1893262/twinsuk/COVID_radar/DataTeam_data'
+#where <- 'GB'
+#day2process <- as.POSIXct('2020-04-15', format = '%Y-%m-%d') 
+
 timestamp <- args[1]
 wdir <- args[2]
 where <- args[3]
@@ -58,8 +64,11 @@ if (!where %in% c("GB", "US")) { stop("Please specify if you want GB or US data"
 dump.day <- paste(substr(timestamp, 0, 4), substr(timestamp, 5, 6), substr(timestamp, 7,8), sep="-")
 
 #If this is the first day, there is no day before
-previous.day <- if (as.character(day2process) == "2020-03-21") NA else substr(as.character(day2process-1), 0, 10) 
-
+if (as.character(day2process) == "2020-03-24"){
+  previous.day <- NA
+  print("this is the first day, there is no day before")
+} else
+  previous.day <- substr(as.character(day2process-1), 0, 10) 
 
 # --------------------
 # Data cleaning
@@ -67,29 +76,3 @@ previous.day <- if (as.character(day2process) == "2020-03-21") NA else substr(as
 
 setwd(sdir)
 source("data_cleaning.R")
-
-# --------------------
-# Generate descriptive
-# --------------------
-
-setwd(sdir)
-source("generate_descriptive.R")
-
-print("Descriptive generated")
-
-# --------------------
-# Generate markdown report
-# --------------------
-
-setwd(sdir)
-md <- "../assets/report.Rmd"
-html <- "../assets/report.html"
-
-#Renames with the day timestamp
-rmarkdown::render(md, params = "ask", quiet = TRUE)
-file.rename(html, paste0("../reports/report_", timestamp, ".html"))
-
-print("Report ready in:")
-print(paste0("../reports/report_", timestamp, ".html"))
-
-
