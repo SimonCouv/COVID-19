@@ -4,19 +4,18 @@ library(tidyr)
 library(data.table)
 library(readr)
 library(purrr)
+library()
 
 load("/home/simon/OneDrive/KCL/Falchi/phd/COVID_radar/data/twin_radar_data_2020-04-15.RData")
 id_map <- read_csv("data/Matched_IDs_20200414.csv")
 
+# variables of interest
 p_vars_filter <- c("interacted_with_covid", "contact_health_worker", "classic_symptoms")
 p_vars_anno <- c("year_of_birth", "gender", "has_diabetes","has_heart_disease", "has_lung_disease", "is_smoker", "does_chemotherapy", "has_cancer", "has_kidney_disease", "already_had_covid", "interacted_patients_with_covid", "classic_symptoms_days_ago")
-
-
-
 a_vars_filter <- c("fever", "persistent_cough", "fatigue_binary", "shortness_of_breath_binary", "delirium", "loss_of_smell")
 a_vars_anno <- c("had_covid_test", "treated_patients_with_covid", "tested_covid_positive")
 
-
+# per symptom: get onset and end of most recent episode, and most recent positive report of the symptom
 code_last_episode <- function(data, vars){
   
   l <- list()
@@ -27,7 +26,7 @@ code_last_episode <- function(data, vars){
     x <- data[, c(v, "binary_date"), drop=T]
     x <- x[order(x$binary_date),] %>% drop_na()
     
-    # reduce the intervals, i.e. retain only dates on which status changes
+    # reduce the intervals, i.e. retain only dates on which status changes: positive-> negative or vice versa
     xred <- rbind(x[1,], x[replace_na(lag(x[[v]]) != x[[v]], FALSE),])
     
     # start and end dates of the last period during which patient had positive status
@@ -58,15 +57,18 @@ code_last_episode <- function(data, vars){
   bind_rows(l, .id="variable")
 }
 
+# retain only most recent patient info
 p_summary <- p %>% 
   group_by(id) %>% 
   dplyr::filter(binary_date == max(binary_date)) %>% 
   dplyr::select(id, p_vars_filter, p_vars_anno)
 
+# summarise covid info from assessment
 a_summary <-  dplyr::select(a, a_vars_anno, patient_id) %>% 
   group_by(patient_id) %>% 
-  summarise_all(unique)
+  summarise_all(~paste0(unique(.x), collapse = ", "))
 
+# summary per symptom and per twin
 candidates <- a %>%
   group_by(patient_id) %>%
   nest() %>%
@@ -81,7 +83,7 @@ candidates <- a %>%
   left_join(id_map, by=c("patient_id" = "App_ID")) %>% 
   dplyr::select(TwinSN, everything())
 
-
+# summarise further over symptoms to get one line per twin
 candidates_summary <- candidates %>% 
   dplyr::filter(!is.na(last_positive_onset)) %>% 
   group_by(patient_id) %>% 
@@ -98,5 +100,11 @@ candidates_summary <- candidates %>%
   left_join(id_map, by=c("patient_id" = "App_ID")) %>% 
   dplyr::select(TwinSN, everything())
 
-write_csv(candidates, "data/candidates.csv")
-write_csv(candidates_summary, "data/candidates_summary.csv")
+writexl::write_xlsx(
+  x=list("per twin and symptom"=candidates, "per twin" = candidates_summary),
+  path = sprintf("data/candidates_%s.xlsx", today()),
+  col_names = T,
+  format_headers = T
+)
+  
+
