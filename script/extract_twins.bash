@@ -5,12 +5,7 @@ patfile="patients_export_geocodes_${timestamp}.csv"
 assessfile="assessments_export_${timestamp}.csv"
 twins_patfile="twins_$patfile"
 twins_assessfile="twins_$assessfile"
-
-# retain only twins
-
-# first get colno of 'is_in_uk_twins' (changes on 2020/04/03)
-col_no=$(head -1 $patfile | tr ',' '\n' | cat -n | grep is_in_uk_twins | cut -f1 | awk '{$1=$1};1')
-echo "'is_in_uk_twins' is column $col_no"
+id_map="Matched_IDs_20200414.csv"
 
 # subset patient file
 if test -f "$twins_patfile"; then
@@ -18,7 +13,7 @@ if test -f "$twins_patfile"; then
 else
   echo "subsetting patient file"
   head $patfile -n 1 > $twins_patfile
-  awk -v col="$col_no"  -F, '$col=="True"' $patfile >> $twins_patfile
+  grep -Fwf <(tr -d '\r' < $id_map | cut -d, -f2) $patfile >> $twins_patfile
 fi
 
 # subset assesment file
