@@ -26,7 +26,7 @@ twins_assessfile <- paste0("twins_", assessfile)
 
 # bash operations to retain only twins
 print("Subset to TwinsUK participants only")
-system(paste(file.path(sdir, "extract_twins.bash"), timestamp))
+system(paste(file.path(sdir, "extract_twins.bash"), timestamp, ddir))
 
 patient <- read.csv(twins_patfile, na.strings = "")
 assessment <- read.csv(twins_assessfile, na.strings = "")

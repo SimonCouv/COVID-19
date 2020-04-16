@@ -1,8 +1,9 @@
 #!/bin/env bash
 
 timestamp=$1
-patfile="patients_export_geocodes_${timestamp}.csv"
-assessfile="assessments_export_${timestamp}.csv"
+ddir=$2
+patfile="$ddir/patients_export_geocodes_${timestamp}.csv"
+assessfile="$ddir/assessments_export_${timestamp}.csv"
 twins_patfile="twins_$patfile"
 twins_assessfile="twins_$assessfile"
 id_map="Matched_IDs_20200414.csv"
@@ -19,7 +20,7 @@ fi
 # subset assesment file
 if test -f "$twins_assessfile"; then
   echo "subsetted assessment file already exists."
-else 
+else
   echo "subsetting assessment file"
   head $assessfile > $twins_assessfile
   grep -Fwf <(cut -d, -f1 $twins_patfile) $assessfile >> $twins_assessfile
