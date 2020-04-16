@@ -15,7 +15,7 @@ MAXTEMPERATURE <- 42
 # Loads data
 # --------------------
 
-library(readr)
+library(data.table)
 
 setwd(wdir)
 
@@ -50,7 +50,7 @@ if (file.exists(twins_assessfile)){
   id_map <- fread(mapfile)
   names(id_map) <- c("twins_id", "app_id")
   assessment_full <- fread(file.path(ddir,assessfile))
-  assessment <- assessment_full[id %in% id_map$app_id]
+  assessment <- assessment_full[patient_id %in% patient$id]
   rm(assessment_full)
   fwrite(assessment, file = twins_assessfile, quote = "auto")
 }
