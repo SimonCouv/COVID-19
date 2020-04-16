@@ -4,8 +4,8 @@ timestamp=$1
 ddir=$2
 patfile="$ddir/patients_export_geocodes_${timestamp}.csv"
 assessfile="$ddir/assessments_export_${timestamp}.csv"
-twins_patfile="twins_$patfile"
-twins_assessfile="twins_$assessfile"
+twins_patfile="twins_$(basename patfile)"
+twins_assessfile="twins_$(basename assessfile)"
 id_map="Matched_IDs_20200414.csv"
 
 # subset patient file
