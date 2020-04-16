@@ -15,6 +15,8 @@ MAXTEMPERATURE <- 42
 # Loads data
 # --------------------
 
+library(readr)
+
 setwd(wdir)
 
 print("Loading data")
@@ -24,12 +26,34 @@ assessfile <- paste0("assessments_export_", timestamp, ".csv")
 twins_patfile <- paste0("twins_", patfile)
 twins_assessfile <- paste0("twins_", assessfile)
 
-# bash operations to retain only twins
 print("Subset to TwinsUK participants only")
-system(paste(file.path(sdir, "extract_twins.bash"), timestamp, ddir))
+# patient file
+if (file.exists(twins_patfile)){
+  cat("using existing subsetted patient file\n")
+  patient <- fread(twins_patfile)
+} else {
+  cat("subsetting patient file\n")
+  id_map <- fread(mapfile)
+  names(id_map) <- c("twins_id", "app_id")
+  patient_full <- fread(file.path(ddir,patfile))
+  patient <- patient_full[id %in% id_map$app_id]
+  rm(patient_full)
+  fwrite(patient, file = twins_patfile, quote = "auto")
+}
 
-patient <- read.csv(twins_patfile, na.strings = "")
-assessment <- read.csv(twins_assessfile, na.strings = "")
+# assessment file
+if (file.exists(twins_assessfile)){
+  cat("using existing subsetted assessment file\n")
+  assessment <- fread(twins_assessfile)
+} else {
+  cat("subsetting assessment file\n")
+  id_map <- fread(mapfile)
+  names(id_map) <- c("twins_id", "app_id")
+  assessment_full <- fread(file.path(ddir,assessfile))
+  assessment <- assessment_full[id %in% id_map$app_id]
+  rm(assessment_full)
+  fwrite(assessment, file = twins_assessfile, quote = "auto")
+}
 
 #Old dump that requires imperial to metric conversion -- this is done here to avoid
 #wasting time with all the other process

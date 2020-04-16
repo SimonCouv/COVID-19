@@ -37,7 +37,8 @@ if (length(args) < 4)
 	print("Params")
 	print("timestamp:   timestamp of the files to analyse")
 	print("input datadir:     directory where the file to analyse are located")
-	print("output datadir:     directory where save output")
+	print("output datadir:     directory where to save output and intermediate data")
+	print("mapfile:     csv file with header; twin IDs in first and app IDs in second column")
 	print("where:       whether to process British (GB) or American (US) users")
 	print("day2process: which day will be process in this run (format: YYYY-mm-dd)")
 	print("")
@@ -50,16 +51,19 @@ if (length(args) < 4)
 }
 
 ## debug
-# timestamp <- '20200415050002'
-#wdir <- '/scratch/users/k1893262/twinsuk/COVID_radar/DataTeam_data'
-#where <- 'GB'
-#day2process <- as.POSIXct('2020-04-15', format = '%Y-%m-%d') 
+# timestamp <- '20200416050002'
+# wdir <- '/trinity/home/couvreurs/COVID_radar/data/symptom_twin'
+# ddir <- '/trinity/home/DTR_Shared/COVID_Radar/covid-kcl-anon-data/'
+# mapfile <- 'Matched_IDs_20200414.csv'
+# where <- 'GB'
+# day2process <- as.POSIXct('2020-03-24', format = '%Y-%m-%d')
 
 timestamp <- args[1]
 ddir <- args[2]
 wdir <- args[3]
-where <- args[4]
-day2process <- as.POSIXct(args[5], format = '%Y-%m-%d') 
+mapfile <- args[4]
+where <- args[5]
+day2process <- as.POSIXct(args[6], format = '%Y-%m-%d') 
 
 if (!where %in% c("GB", "US")) { stop("Please specify if you want GB or US data")}
 
