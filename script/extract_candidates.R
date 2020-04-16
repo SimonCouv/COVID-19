@@ -7,7 +7,7 @@ library(purrr)
 
 
 
-max_days_past <- 9
+max_days_past <- 14
 wdir <- "/scratch/users/k1893262/twinsuk/COVID_radar/DataTeam_data"
 sdir <- getwd()
 ldn_pc <- unlist(fread(file.path(wdir, "london_postcodes_list_20200414.txt"))[,2])
@@ -32,9 +32,5 @@ for (i in 0:max_days_past){
 
 a <- bind_rows(al, .id = "binary_date")
 p <- bind_rows(pl, .id = "binary_date")
-
-# subset for london postcodes
-p <- dplyr::filter(p, outward_postcode %in% ldn_pc)
-a <- dplyr::filter(a, patient_id %in% p$id)
 
 save(a, p, file= file.path(wdir, sprintf("twin_radar_data_%s.RData", start_date)))
