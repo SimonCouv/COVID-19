@@ -113,11 +113,7 @@ candidates_summary <- candidates %>%
   left_join(a_summary, by="patient_id") %>% 
   dplyr::select(TwinSN, sex_mismatch, birthyear_diff, everything())
 
-writexl::write_xlsx(
-  x=list("per twin and symptom"=candidates, "per twin" = candidates_summary),
-  path = sprintf("%s/symptomatic_twins_%s.xlsx", wdir,today()),
-  col_names = T,
-  format_headers = T
-)
-  
+write_csv(candidates, path = sprintf("%s/symptomatic_twins_PerTwinPerSymptom_%s.xlsx", wdir,today()))
+write_csv(candidates_summary, path = sprintf("%s/symptomatic_twins_PerTwin_%s.xlsx", wdir,today()))
+
 cat("\n\n---Formatting completed---\n\n")
