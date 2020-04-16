@@ -106,7 +106,9 @@ candidates_summary <- candidates %>%
             `onset last positive period [earliest over symptoms]` = min(last_positive_onset, na.rm = T),
             `any (presumably) active symptom` = any(is.na(last_positive_end))
   ) %>% 
-  arrange(desc(n_symptoms)) %>%
+  arrange(desc(n_symptoms),
+          `onset last positive period [earliest over symptoms]`,
+          desc(`most recent positive report [any_symptom]`)) %>%
   left_join(p_summary, by=c("patient_id" = "id")) %>%
   left_join(a_summary, by="patient_id") %>% 
   dplyr::select(TwinSN, sex_mismatch, birthyear_diff, everything())

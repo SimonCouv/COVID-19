@@ -15,7 +15,7 @@ twins_annofile <- args[8]
 # start and end date included
 for (i in 0:(end_date-start_date)){
   d <- start_date + i
-  cat("\n--- Processing ", d, " ---\n\n")
+  cat("\n--- Processing ", as.character(d), " ---\n\n")
   system(glue("Rscript daily_data_cleaning.R {timestamp} {ddir} {wdir} {mapfile} {where} {d} {twins_annofile}"))
 }
 
