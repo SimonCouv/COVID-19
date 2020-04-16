@@ -1,3 +1,4 @@
+# --------------------
 # Global variables
 # --------------------
 
@@ -44,11 +45,12 @@ if (length(args) < 7)
 
 ## debug
 # timestamp <- '20200416050002'
-# wdir <- '/trinity/home/couvreurs/COVID_radar/data/symptom_twin'
 # ddir <- '/trinity/home/DTR_Shared/COVID_Radar/covid-kcl-anon-data/'
+# wdir <- '/trinity/home/couvreurs/COVID_radar/data/symptom_twin'
 # mapfile <- 'Matched_IDs_20200414.csv'
 # where <- 'GB'
-# day2process <- as.POSIXct('2020-03-24', format = '%Y-%m-%d')
+# day2process <- as.POSIXct('2020-04-07', format = '%Y-%m-%d')
+# twins_annofile <- "/trinity/home/couvreurs/COVID_radar/data/symptom_twin/TwinDetails_060420.csv"
 
 timestamp <- args[1]
 ddir <- args[2]
@@ -294,7 +296,7 @@ assessment <- assessment[!is.na(assessment$patient_id), ]
 
 # This is an extra cross-check,  where we are asking to people who had a positive/negative results
 # also to have had answered true to the fact that they had a COVID-19 test
-assessment <- assessment[(is.na(assessment$had_covid_test) | assessment$had_covid_test == "False") & is.na(assessment$tested_covid_positive) | (assessment$had_covid_test == "True" & assessment$tested_covid_positive %in% c("yes", "no", "waiting")), ]
+assessment <- assessment[((is.na(assessment$had_covid_test) | assessment$had_covid_test == "False") & is.na(assessment$tested_covid_positive) | assessment$tested_covid_positive=="") | (assessment$had_covid_test == "True" & assessment$tested_covid_positive %in% c("yes", "no", "waiting")), ]
 
 # --------------------
 # Using data from the day before to propagate the result of the test
@@ -303,51 +305,51 @@ assessment <- assessment[(is.na(assessment$had_covid_test) | assessment$had_covi
 #Well, not if this is the first day of data collection
 if (!is.na(previous.day))
 {
-	#They have the same name
-	a1 <- assessment
-	p1 <- patient
-	
-	load(paste0(wdir, "/twins_patient_and_assessments_cleaned_", previous.day, ".RData"))
-	
-	a <- assessment
-	p <- patient
-	
-	assessment <- a1
-	patient <- p1
-	rm(a1, p1)
-	
-	#I will work only with patient that have logged their data also the day before
-	#new data, new pat
-        newpat.assessment <- assessment[!assessment$patient_id %in% a$patient_id, ]
-	#new data, old pat
-        oldpat.assessment <- assessment[assessment$patient_id %in% a$patient_id, ]
-
-        # when processing the little amount of data collected on the same day of the timestamp, before the data
-        # was locked (early in the morning), there can be no returning twins        
-        if (nrow(oldpat.assessment) >0){
-          
-          #old data, old pat
-          a <- a[a$patient_id %in% oldpat.assessment$patient_id, ]
-	  #all data, old pat
-	  oldpat.assessment <- rbind(a, oldpat.assessment)
-	
-          # list with item per patient
-          oldpat.assessment <- mysplit(oldpat.assessment, oldpat.assessment$patient_id)
-	  for (i in 1:length(oldpat.assessment))
-	  {  
-		oldpat.assessment[[i]] <- propagate.test(oldpat.assessment[[i]])
-		#I remove the old values
-		oldpat.assessment[[i]] <- oldpat.assessment[[i]][oldpat.assessment[[i]]$day == day2process, ]
-	  }  
-
-	  assessment <- myrbind(c(oldpat.assessment, list(newpat.assessment)))
-
-        }
-
-	rm(oldpat.assessment, newpat.assessment, p, a)
-	
-	#Schrödinger's patients
-	assessment <- assessment[!is.na(assessment$patient_id), ]
+  #They have the same name
+  a1 <- assessment
+  p1 <- patient
+  
+  load(paste0(wdir, "/twins_patient_and_assessments_cleaned_", previous.day, ".RData"))
+  
+  a <- assessment
+  p <- patient
+  
+  assessment <- a1
+  patient <- p1
+  rm(a1, p1)
+  
+  #I will work only with patient that have logged their data also the day before
+  #new data, new pat
+  newpat.assessment <- assessment[!assessment$patient_id %in% a$patient_id, ]
+  #new data, old pat
+  oldpat.assessment <- assessment[assessment$patient_id %in% a$patient_id, ]
+  
+  # when processing the little amount of data collected on the same day of the timestamp, before the data
+  # was locked (early in the morning), there can be no returning twins        
+  if (nrow(oldpat.assessment) >0){
+    
+    #old data, old pat
+    a <- a[a$patient_id %in% oldpat.assessment$patient_id, ]
+    #all data, old pat
+    oldpat.assessment <- rbind(a, oldpat.assessment)
+    
+    # list with item per patient
+    oldpat.assessment <- mysplit(oldpat.assessment, oldpat.assessment$patient_id)
+    for (i in 1:length(oldpat.assessment))
+    {  
+      oldpat.assessment[[i]] <- propagate.test(oldpat.assessment[[i]])
+      #I remove the old values
+      oldpat.assessment[[i]] <- oldpat.assessment[[i]][oldpat.assessment[[i]]$day == day2process, ]
+    }  
+    
+    assessment <- myrbind(c(oldpat.assessment, list(newpat.assessment)))
+    
+  }
+  
+  rm(oldpat.assessment, newpat.assessment, p, a)
+  
+  #Schrödinger's patients
+  assessment <- assessment[!is.na(assessment$patient_id), ]
 }
 
 print("Assessment data cleaned")
@@ -358,6 +360,8 @@ print("Assessment data cleaned")
 
 #Patient should have at least a valid assessment
 patient <- patient[patient$id %in% assessment$patient_id, ]
+# remove any remaining duplicates
+patient <- unique(patient)
 
 # --------------------
 # Save data
