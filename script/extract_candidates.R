@@ -8,14 +8,8 @@ library(purrr)
 
 
 max_days_past <- 14
-wdir <- "/scratch/users/k1893262/twinsuk/COVID_radar/DataTeam_data"
-sdir <- getwd()
-ldn_pc <- unlist(fread(file.path(wdir, "london_postcodes_list_20200414.txt"))[,2])
-# start_date <- today()
-# start_date <- today()-1
-
-start_date <- as_date(commandArgs(trailingOnly = T))
-
+start_date <- as_date(commandArgs(trailingOnly = T)[1])
+wdir <- commandArgs(trailingOnly=TRUE)[2]
 
 al <- pl <- list()
 for (i in 0:max_days_past){
@@ -34,3 +28,5 @@ a <- bind_rows(al, .id = "binary_date")
 p <- bind_rows(pl, .id = "binary_date")
 
 save(a, p, file= file.path(wdir, sprintf("twin_radar_data_%s.RData", start_date)))
+
+print(sprintf("Completed. Results are in %s/twin_radar_data_%s.RData", wdir, start_date))
