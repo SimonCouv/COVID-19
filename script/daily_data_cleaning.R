@@ -45,11 +45,12 @@ if (length(args) < 7)
 
 ## debug
 # timestamp <- '20200416050002'
+# timestamp <- '20200402092728'
 # ddir <- '/trinity/home/DTR_Shared/COVID_Radar/covid-kcl-anon-data/'
 # wdir <- '/trinity/home/couvreurs/COVID_radar/data/symptom_twin'
 # mapfile <- 'Matched_IDs_20200414.csv'
 # where <- 'GB'
-# day2process <- as.POSIXct('2020-04-07', format = '%Y-%m-%d')
+# day2process <- as.POSIXct('2020-03-25', format = '%Y-%m-%d')
 # twins_annofile <- "/trinity/home/couvreurs/COVID_radar/data/symptom_twin/TwinDetails_060420.csv"
 
 timestamp <- args[1]
@@ -296,7 +297,7 @@ assessment <- assessment[!is.na(assessment$patient_id), ]
 
 # This is an extra cross-check,  where we are asking to people who had a positive/negative results
 # also to have had answered true to the fact that they had a COVID-19 test
-assessment <- assessment[((is.na(assessment$had_covid_test) | assessment$had_covid_test == "False") & is.na(assessment$tested_covid_positive) | assessment$tested_covid_positive=="") | (assessment$had_covid_test == "True" & assessment$tested_covid_positive %in% c("yes", "no", "waiting")), ]
+assessment <- assessment[((is.na(assessment$had_covid_test) | assessment$had_covid_test == FALSE) & (is.na(assessment$tested_covid_positive) | assessment$tested_covid_positive=="")) | (assessment$had_covid_test == TRUE & assessment$tested_covid_positive %in% c("yes", "no", "waiting")), ]
 
 # --------------------
 # Using data from the day before to propagate the result of the test
