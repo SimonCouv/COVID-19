@@ -4,10 +4,18 @@ library(tidyr)
 library(data.table)
 library(readr)
 library(purrr)
-library()
 
-load("/home/simon/OneDrive/KCL/Falchi/phd/COVID_radar/data/twin_radar_data_2020-04-15.RData")
-id_map <- read_csv("data/Matched_IDs_20200414.csv")
+# parse arguments
+args <- commandArgs(trailingOnly = TRUE)
+date <- args[1]
+mapfile <- args[2]
+wdir <- args[3]
+
+# load data
+load(sprintf("%s/twin_radar_data_%s.RData", wdir, date))
+id_map <- read_csv(file.path(wdir,mapfile))
+twins_anno <- fread(file.path(wdir, mapfile)) %>% 
+  setnames(tolower(names(.)))
 
 # variables of interest
 p_vars_filter <- c("interacted_with_covid", "contact_health_worker", "classic_symptoms")
@@ -73,7 +81,7 @@ candidates <- a %>%
   group_by(patient_id) %>%
   nest() %>%
   mutate(
-    last_episode = map(data, ~code_last_episode(.x, vars=a_vars_filter))
+    last_episode = map(data, ~code_last_episode(.x, vars=a_vars_filter))  #KEY STEP
   ) %>%
   dplyr::select(patient_id, last_episode) %>%
   unnest(last_episode) %>%
@@ -81,6 +89,18 @@ candidates <- a %>%
   left_join(p_summary, by=c("patient_id" = "id")) %>%
   left_join(a_summary, by="patient_id") %>% 
   left_join(id_map, by=c("patient_id" = "App_ID")) %>% 
+  left_join(
+    dplyr::select(
+      twins_anno, 
+      TwinSN=study_no,
+      year_of_birth_phenobase = year_birth,
+      sex_phenobase = sex,
+      actual_zygosity_phenobase = actual_zygosity
+    )
+  ) %>% 
+  mutate(sex_phenobase2 = recode(sex_phenobase, "F"=0, "M"=1),
+         sex_mismatch = sex_phenobase2 != gender,
+         birthyear_diff = abs(year_of_birth - year_of_birth_phenobase)) %>% 
   dplyr::select(TwinSN, everything())
 
 # summarise further over symptoms to get one line per twin
@@ -102,7 +122,7 @@ candidates_summary <- candidates %>%
 
 writexl::write_xlsx(
   x=list("per twin and symptom"=candidates, "per twin" = candidates_summary),
-  path = sprintf("data/candidates_%s.xlsx", today()),
+  path = sprintf("%s/symptomatic_twins_%s.xlsx", wdir,today()),
   col_names = T,
   format_headers = T
 )
