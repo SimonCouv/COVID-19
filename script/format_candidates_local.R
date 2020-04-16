@@ -8,18 +8,22 @@ library(purrr)
 # parse arguments
 args <- commandArgs(trailingOnly = TRUE)
 date <- args[1]
-mapfile <- args[2]
+twins_annofile <- args[2]
 wdir <- args[3]
 
 # load data
 load(sprintf("%s/twin_radar_data_%s.RData", wdir, date))
-id_map <- read_csv(file.path(wdir,mapfile))
-twins_anno <- fread(file.path(wdir, mapfile)) %>% 
+twins_anno <- fread(file.path(wdir, twins_annofile)) %>% 
   setnames(tolower(names(.)))
 
 # variables of interest
-p_vars_filter <- c("interacted_with_covid", "contact_health_worker", "classic_symptoms")
-p_vars_anno <- c("year_of_birth", "gender", "has_diabetes","has_heart_disease", "has_lung_disease", "is_smoker", "does_chemotherapy", "has_cancer", "has_kidney_disease", "already_had_covid", "interacted_patients_with_covid", "classic_symptoms_days_ago")
+p_vars_anno <- c("interacted_with_covid", "contact_health_worker", "classic_symptoms",
+                 "year_of_birth", "gender", "has_diabetes","has_heart_disease", 
+                 "has_lung_disease", "is_smoker", "does_chemotherapy", 
+                 "has_cancer", "has_kidney_disease", "already_had_covid",
+                 "interacted_patients_with_covid", "classic_symptoms_days_ago",
+                 "year_of_birth_phenobase", "sex_phenobase",
+                 "actual_zygosity_phenobase", "sex_mismatch", "birthyear_diff")
 a_vars_filter <- c("fever", "persistent_cough", "fatigue_binary", "shortness_of_breath_binary", "delirium", "loss_of_smell")
 a_vars_anno <- c("had_covid_test", "treated_patients_with_covid", "tested_covid_positive")
 
@@ -69,44 +73,32 @@ code_last_episode <- function(data, vars){
 p_summary <- p %>% 
   group_by(id) %>% 
   dplyr::filter(binary_date == max(binary_date)) %>% 
-  dplyr::select(id, p_vars_filter, p_vars_anno)
+  dplyr::select(id, all_of(p_vars_anno))
 
 # summarise covid info from assessment
-a_summary <-  dplyr::select(a, a_vars_anno, patient_id) %>% 
+a_summary <-  dplyr::select(a, all_of(a_vars_anno), patient_id) %>% 
   group_by(patient_id) %>% 
   summarise_all(~paste0(unique(.x), collapse = ", "))
 
 # summary per symptom and per twin
 candidates <- a %>%
-  group_by(patient_id) %>%
+  group_by(patient_id, TwinSN) %>%
   nest() %>%
   mutate(
     last_episode = map(data, ~code_last_episode(.x, vars=a_vars_filter))  #KEY STEP
   ) %>%
-  dplyr::select(patient_id, last_episode) %>%
+  dplyr::select(patient_id, TwinSN, last_episode) %>%
   unnest(last_episode) %>%
+  dplyr::filter(!is.na(last_positive_onset)) %>%    # retain only individuals with at least one symptom in this period
   arrange(desc(last_positive_onset), !(is.na(last_positive_end)), last_positive_end) %>% 
   left_join(p_summary, by=c("patient_id" = "id")) %>%
-  left_join(a_summary, by="patient_id") %>% 
-  left_join(id_map, by=c("patient_id" = "App_ID")) %>% 
-  left_join(
-    dplyr::select(
-      twins_anno, 
-      TwinSN=study_no,
-      year_of_birth_phenobase = year_birth,
-      sex_phenobase = sex,
-      actual_zygosity_phenobase = actual_zygosity
-    )
-  ) %>% 
-  mutate(sex_phenobase2 = recode(sex_phenobase, "F"=0, "M"=1),
-         sex_mismatch = sex_phenobase2 != gender,
-         birthyear_diff = abs(year_of_birth - year_of_birth_phenobase)) %>% 
+  left_join(a_summary, by="patient_id") %>%
   dplyr::select(TwinSN, everything())
 
 # summarise further over symptoms to get one line per twin
 candidates_summary <- candidates %>% 
   dplyr::filter(!is.na(last_positive_onset)) %>% 
-  group_by(patient_id) %>% 
+  group_by(patient_id, TwinSN) %>% 
   summarise(n_symptoms = n(), 
             symptoms = paste0(variable, collapse = ", "),
             `most recent positive report [any_symptom]` = max(most_recent_positive, na.rm = T),
@@ -117,8 +109,7 @@ candidates_summary <- candidates %>%
   arrange(desc(n_symptoms)) %>%
   left_join(p_summary, by=c("patient_id" = "id")) %>%
   left_join(a_summary, by="patient_id") %>% 
-  left_join(id_map, by=c("patient_id" = "App_ID")) %>% 
-  dplyr::select(TwinSN, everything())
+  dplyr::select(TwinSN, sex_mismatch, birthyear_diff, everything())
 
 writexl::write_xlsx(
   x=list("per twin and symptom"=candidates, "per twin" = candidates_summary),
@@ -127,4 +118,4 @@ writexl::write_xlsx(
   format_headers = T
 )
   
-
+cat("\n\n---Formatting completed---\n\n")
