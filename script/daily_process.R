@@ -64,6 +64,7 @@ wdir <- args[3]
 mapfile <- args[4]
 where <- args[5]
 day2process <- as.POSIXct(args[6], format = '%Y-%m-%d') 
+twins_annofile <- args[7]
 
 if (!where %in% c("GB", "US")) { stop("Please specify if you want GB or US data")}
 

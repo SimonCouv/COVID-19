@@ -22,8 +22,10 @@ setwd(wdir)
 
 print("Loading data")
 
+twins_anno <- fread(twins_annofile) %>% setnames(tolower(names(.)))
+
 id_map <- fread(mapfile)
-names(id_map) <- c("twins_id", "app_id")
+names(id_map) <- c("TwinSN", "app_id")
 setkey(id_map, app_id)
 
 patfile <- paste0("patients_export_geocodes_", timestamp, ".csv")
@@ -55,6 +57,7 @@ if (file.exists(twins_patfile)){
     )
   ) %>% 
     mutate(
+      sex_phenobase = na_if(sex_phenobase, ""),
       sex_phenobase2 = recode(sex_phenobase, "F"=0, "M"=1),
       sex_mismatch = sex_phenobase2 != gender,  #caveat: trans/nonbinary/.. individuals
       birthyear_diff = abs(year_of_birth - year_of_birth_phenobase)
@@ -63,7 +66,7 @@ if (file.exists(twins_patfile)){
     dplyr::select(TwinSN, sex_mismatch, birthyear_diff, everything())
   
   fwrite(patient, file = twins_patfile, quote = "auto")
-  fwrite(patient, file = file.path(ddir, twins_patfile), quote = "auto") #shared location
+  # fwrite(patient, file = file.path(ddir, paste0("twins_SC_", patfile)), quote = "auto") #shared location
 }
 
 # assessment file
@@ -79,7 +82,7 @@ if (file.exists(twins_assessfile)){
   rm(assessment_full)
   
   fwrite(assessment, file = twins_assessfile, quote = "auto")
-  fwrite(assessment, file = file.path(ddir, twins_assessfile), quote = "auto") #shared location
+  # fwrite(assessment, file = file.path(ddir, twins_assessfile), quote = "auto") #shared location
 }
 
 # convert data.tables for compatibility with existing data.frame-based code
