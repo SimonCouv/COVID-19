@@ -15,11 +15,16 @@ MAXTEMPERATURE <- 42
 # Loads data
 # --------------------
 
-library(data.table)
+library(data.table) # for efficient reading and merging of large files
+library(dplyr)
 
 setwd(wdir)
 
 print("Loading data")
+
+id_map <- fread(mapfile)
+names(id_map) <- c("twins_id", "app_id")
+setkey(id_map, app_id)
 
 patfile <- paste0("patients_export_geocodes_", timestamp, ".csv")
 assessfile <- paste0("assessments_export_", timestamp, ".csv")
@@ -27,18 +32,38 @@ twins_patfile <- paste0("twins_", patfile)
 twins_assessfile <- paste0("twins_", assessfile)
 
 print("Subset to TwinsUK participants only")
+
 # patient file
 if (file.exists(twins_patfile)){
   cat("using existing subsetted patient file\n")
   patient <- fread(twins_patfile)
 } else {
   cat("subsetting patient file\n")
-  id_map <- fread(mapfile)
-  names(id_map) <- c("twins_id", "app_id")
-  patient_full <- fread(file.path(ddir,patfile), data.table=F)
-  patient <- patient_full[patient_full$id %in% id_map$app_id,]
+  patient_full <- fread(file.path(ddir,patfile), data.table=T)
+  setkey(patient_full, id)
+  patient <- patient_full[id_map]
   rm(patient_full)
+  
+  patient <- left_join(
+    patient,
+    dplyr::select(
+      twins_anno, 
+      TwinSN=study_no,
+      year_of_birth_phenobase = year_birth,
+      sex_phenobase = sex,
+      actual_zygosity_phenobase = actual_zygosity
+    )
+  ) %>% 
+    mutate(
+      sex_phenobase2 = recode(sex_phenobase, "F"=0, "M"=1),
+      sex_mismatch = sex_phenobase2 != gender,  #caveat: trans/nonbinary/.. individuals
+      birthyear_diff = abs(year_of_birth - year_of_birth_phenobase)
+    ) %>% 
+    dplyr::select(-sex_phenobase2) %>% 
+    dplyr::select(TwinSN, sex_mismatch, birthyear_diff, everything())
+  
   fwrite(patient, file = twins_patfile, quote = "auto")
+  fwrite(patient, file = file.path(ddir, twins_patfile), quote = "auto") #shared location
 }
 
 # assessment file
@@ -47,13 +72,19 @@ if (file.exists(twins_assessfile)){
   assessment <- fread(twins_assessfile)
 } else {
   cat("subsetting assessment file\n")
-  id_map <- fread(mapfile)
-  names(id_map) <- c("twins_id", "app_id")
-  assessment_full <- fread(file.path(ddir,assessfile),data.table=F)
-  assessment <- assessment_full[assessment_full$patient_id %in% patient$id,]
+
+  assessment_full <- fread(file.path(ddir,assessfile),data.table=T)
+  setkey(assessment_full, patient_id)
+  assessment <- assessment_full[id_map]
   rm(assessment_full)
+  
   fwrite(assessment, file = twins_assessfile, quote = "auto")
+  fwrite(assessment, file = file.path(ddir, twins_assessfile), quote = "auto") #shared location
 }
+
+# convert data.tables for compatibility with existing data.frame-based code
+patient <- as.data.frame(patient)
+assessment <- as.data.frame(assessment)
 
 #Old dump that requires imperial to metric conversion -- this is done here to avoid
 #wasting time with all the other process
