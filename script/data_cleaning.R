@@ -15,7 +15,7 @@ MAXTEMPERATURE <- 42
 # Loads data
 # --------------------
 
-library(readr)
+library(data.table)
 
 setwd(wdir)
 
@@ -35,8 +35,8 @@ if (file.exists(twins_patfile)){
   cat("subsetting patient file\n")
   id_map <- fread(mapfile)
   names(id_map) <- c("twins_id", "app_id")
-  patient_full <- fread(file.path(ddir,patfile))
-  patient <- patient_full[id %in% id_map$app_id]
+  patient_full <- fread(file.path(ddir,patfile), data.table=F)
+  patient <- patient_full[patient_full$id %in% id_map$app_id,]
   rm(patient_full)
   fwrite(patient, file = twins_patfile, quote = "auto")
 }
@@ -49,8 +49,8 @@ if (file.exists(twins_assessfile)){
   cat("subsetting assessment file\n")
   id_map <- fread(mapfile)
   names(id_map) <- c("twins_id", "app_id")
-  assessment_full <- fread(file.path(ddir,assessfile))
-  assessment <- assessment_full[id %in% id_map$app_id]
+  assessment_full <- fread(file.path(ddir,assessfile),data.table=F)
+  assessment <- assessment_full[assessment_full$patient_id %in% patient$id,]
   rm(assessment_full)
   fwrite(assessment, file = twins_assessfile, quote = "auto")
 }
