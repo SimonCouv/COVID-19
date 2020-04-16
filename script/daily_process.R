@@ -36,7 +36,8 @@ if (length(args) < 4)
 	print("")
 	print("Params")
 	print("timestamp:   timestamp of the files to analyse")
-	print("datadir:     directory where the file to analyse are located")
+	print("input datadir:     directory where the file to analyse are located")
+	print("output datadir:     directory where save output")
 	print("where:       whether to process British (GB) or American (US) users")
 	print("day2process: which day will be process in this run (format: YYYY-mm-dd)")
 	print("")
@@ -55,9 +56,10 @@ if (length(args) < 4)
 #day2process <- as.POSIXct('2020-04-15', format = '%Y-%m-%d') 
 
 timestamp <- args[1]
-wdir <- args[2]
-where <- args[3]
-day2process <- as.POSIXct(args[4], format = '%Y-%m-%d') 
+ddir <- args[2]
+wdir <- args[3]
+where <- args[4]
+day2process <- as.POSIXct(args[5], format = '%Y-%m-%d') 
 
 if (!where %in% c("GB", "US")) { stop("Please specify if you want GB or US data")}
 
