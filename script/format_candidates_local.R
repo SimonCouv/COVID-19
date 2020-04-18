@@ -4,15 +4,17 @@ library(tidyr)
 library(data.table)
 library(readr)
 library(purrr)
+library(stringr)
 
 # parse arguments
 args <- commandArgs(trailingOnly = TRUE)
-date <- args[1]
+date_tag <- args[1]
 twins_annofile <- args[2]
 wdir <- args[3]
+date <- str_match(date_tag, "^(.+)_\\d+days$")[,2]
 
 # load data
-load(sprintf("%s/twin_radar_data_%s.RData", wdir, date))
+load(sprintf("%s/twin_radar_data_%s.RData", wdir, date_tag))
 twins_anno <- fread(file.path(wdir, twins_annofile)) %>% 
   setnames(tolower(names(.)))
 
@@ -113,7 +115,7 @@ candidates_summary <- candidates %>%
   left_join(a_summary, by="patient_id") %>% 
   dplyr::select(TwinSN, sex_mismatch, birthyear_diff, everything())
 
-write_csv(candidates, path = sprintf("%s/symptomatic_twins_PerTwinPerSymptom_%s.xlsx", wdir,today()))
-write_csv(candidates_summary, path = sprintf("%s/symptomatic_twins_PerTwin_%s.xlsx", wdir,today()))
+write_csv(candidates, path = sprintf("%s/symptomatic_twins_PerTwinPerSymptom_%s.xlsx", wdir, date))
+write_csv(candidates_summary, path = sprintf("%s/symptomatic_twins_PerTwin_%s.xlsx", wdir, date))
 
 cat("\n\n---Formatting completed---\n\n")
