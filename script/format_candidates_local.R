@@ -4,6 +4,7 @@ library(tidyr)
 library(data.table)
 library(readr)
 library(purrr)
+library(stringr)
 
 # parse arguments
 args <- commandArgs(trailingOnly = TRUE)
