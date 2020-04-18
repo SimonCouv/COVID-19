@@ -27,6 +27,6 @@ for (i in 0:max_days_past){
 a <- bind_rows(al, .id = "binary_date")
 p <- bind_rows(pl, .id = "binary_date")
 
-save(a, p, file= file.path(wdir, sprintf("twin_radar_data_%s.RData", start_date)))
+save(a, p, file= file.path(wdir, sprintf("twin_radar_data_%s_%sdays.RData", start_date, max_days_past)))
 
-print(sprintf("Completed. Results are in %s/twin_radar_data_%s.RData", wdir, start_date))
+print(sprintf("Completed. Results are in %s/twin_radar_data_%s_%sdays.RData", wdir, start_date, max_days_past))
